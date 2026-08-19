@@ -1,10 +1,16 @@
 # node_modules is ignored except for the entries re-included below, which are
 # committed deliberately so this checkout runs with no `npm install`. This is a
 # conscious decision, not missing discipline — see VENDORING.md.
+#
 # The `/*` form matters: git cannot re-include a path underneath an excluded
 # directory, so the directory itself must stay un-excluded.
+#
+# Both live at the root rather than beside the runtime so that nothing inside
+# packages/lsp-tools-mcp/ diverges from upstream. Node resolves bare specifiers
+# by walking up, so a root-level copy serves the subtree fine.
 node_modules/*
 !node_modules/@code-yeongyu/
+!node_modules/smol-toml/
 
 *.log
 .env

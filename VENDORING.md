@@ -21,6 +21,19 @@ git subtree pull --prefix=packages/lsp-tools-mcp \
 Upstream changes that move the old submodule pointer will conflict at that path.
 Resolve by taking this fork's tree and running the pull above.
 
+### Keeping the prefix pristine
+
+Everything under `packages/lsp-tools-mcp/` is byte-identical to upstream except
+for the tracked `dist/`, which cannot move because the package's own `exports`
+point at `./dist`. Divergence inside the prefix is what makes subtree pulls
+conflict, so it is kept to that one unavoidable case:
+
+- The prefix's `.gitignore` is **not** edited. `dist/` is tracked by force-adding
+  it once (`git add -f`); `.gitignore` governs only untracked files, so it stays
+  tracked afterwards regardless.
+- The committed `node_modules` entries live at the repository root, not beside
+  the runtime.
+
 ## 2. Build output is committed
 
 `dist/` in both packages is tracked; upstream ignores it in the runtime package.
@@ -28,6 +41,10 @@ A consumer pinning a submodule SHA gets working code at that SHA, which is the
 whole point of pinning. Building on the consumer side would also fail where it
 is most needed: agent sandboxes commonly run without network access, so
 `npm ci` is not available at the moment the server is launched.
+
+`dist/` is stale after any subtree pull, and nothing flags that — upstream does
+not track these paths, so a pull cannot conflict on them. Always rebuild and
+commit after pulling.
 
 Rebuild after any source change or subtree pull, and commit the result:
 
@@ -43,7 +60,12 @@ npm install && npm run build
 | Path | What | Why |
 | --- | --- | --- |
 | `node_modules/@code-yeongyu/lsp-tools-mcp` | relative symlink to `packages/lsp-tools-mcp` | `dist/cli.js` imports the runtime by package name; Node resolves bare ESM specifiers only through `node_modules`, so this link is structural |
-| `packages/lsp-tools-mcp/node_modules/smol-toml` | the package, verbatim | the runtime declares it under `optionalDependencies` but imports it unguarded |
+| `node_modules/smol-toml` | the package, verbatim | the runtime declares it under `optionalDependencies` but imports it unguarded |
+
+Both sit at the repository root. `smol-toml` is imported from inside
+`packages/lsp-tools-mcp/`, and Node resolves bare specifiers by walking parent
+directories, so a root-level copy serves it — which keeps the subtree prefix
+free of divergence.
 
 `smol-toml` is BSD-3-Clause. It is kept byte-for-byte with its own `LICENSE`
 file, which the licence requires of redistributions — and committing it here is
