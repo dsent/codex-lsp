@@ -72,6 +72,68 @@ Example:
 
 Built-in server definitions are used when no custom config overrides them. `lsp.status` shows which configured servers are installed or missing.
 
+## Using this fork as a submodule
+
+Add it, then wire the two Codex surfaces by hand. The plugin route is not
+available from a plain checkout (see the note under *Codex Plugin* below), and
+wiring directly is fewer moving parts anyway.
+
+```bash
+git submodule add https://github.com/dsent/codex-lsp.git <path>/codex-lsp
+```
+
+No `npm install`, no build: the checkout is runnable as committed.
+
+**`.codex/config.toml`** — Codex resolves neither relative `args` nor a relative
+`cwd` against the project root, so the launcher must find the root itself.
+`--show-superproject-working-tree` names the superproject when the session
+started inside a submodule; at the top level it is empty and `--show-toplevel`
+answers instead.
+
+```toml
+[mcp_servers.lsp]
+command = "sh"
+args = ["-c", 'root=$(git rev-parse --show-superproject-working-tree 2>/dev/null); [ -n "$root" ] || root=$(git rev-parse --show-toplevel); exec node "$root/<path>/codex-lsp/packages/lsp-tools-mcp/dist/cli.js" mcp']
+startup_timeout_sec = 30
+```
+
+**`.codex/hooks.json`** — same resolution, pointed at the glue CLI.
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "^(apply_patch|Write|Edit|MultiEdit|multi_edit|write|edit|multiedit)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'root=$(git rev-parse --show-superproject-working-tree 2>/dev/null); [ -n \"$root\" ] || root=$(git rev-parse --show-toplevel); exec node \"$root/<path>/codex-lsp/dist/cli.js\" hook post-tool-use'",
+            "statusMessage": "Checking LSP diagnostics",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Things that will otherwise cost you an afternoon
+
+- **Codex scopes project config to the git root it starts in.** Started inside a
+  submodule, it reads that submodule's `.codex/`, not the superproject's, and
+  reports zero MCP servers. Launch agents from the top level.
+- **Language servers need a VCS root.** `lua-language-server` publishes no
+  diagnostics for a directory that is not under version control, so the hook is
+  silent there. That is correct behaviour, not a failure.
+- **Verify without spending model calls.** `codex doctor` reports whether the
+  server is configured; piping an `initialize` plus `tools/list` into
+  `packages/lsp-tools-mcp/dist/cli.js mcp` proves it actually runs. CI does
+  exactly this on every push.
+- **POSIX only.** `node_modules/@code-yeongyu/lsp-tools-mcp` is a committed
+  symlink, so Windows checkouts need symlink support enabled. Not tested.
+
 ## Codex Plugin
 
 The plugin ships:
