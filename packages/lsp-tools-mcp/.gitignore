@@ -1,5 +1,14 @@
-node_modules/
-dist/
+# Build output is committed here, unlike upstream: consumers vendor this fork
+# as a git submodule and must be able to run it straight from a checkout.
+# See ../../VENDORING.md.
+# dist/ is therefore NOT ignored.
+
+# node_modules is ignored except smol-toml, committed for the same reason.
+# The `/*` form matters: git cannot re-include a path underneath an excluded
+# directory, so the directory itself must stay un-excluded.
+node_modules/*
+!node_modules/smol-toml/
+
 *.log
 .env
 .DS_Store

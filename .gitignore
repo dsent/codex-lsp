@@ -1,4 +1,11 @@
-node_modules/
+# node_modules is ignored except for the entries re-included below, which are
+# committed deliberately so this checkout runs with no `npm install`. This is a
+# conscious decision, not missing discipline — see VENDORING.md.
+# The `/*` form matters: git cannot re-include a path underneath an excluded
+# directory, so the directory itself must stay un-excluded.
+node_modules/*
+!node_modules/@code-yeongyu/
+
 *.log
 .env
 .DS_Store
