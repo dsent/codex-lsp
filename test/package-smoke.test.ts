@@ -78,8 +78,12 @@ describe("plugin package metadata", () => {
 		expect(pluginJson.version).toBe(packageJson.version);
 		expect(packageJson.type).toBe("module");
 		expect(packageJson.packageManager).toBe("npm@11.12.1");
+		// smol-toml is declared here, unlike upstream, so that npm treats the
+		// committed copy as a dependency it should restore rather than an
+		// extraneous directory it should prune. See VENDORING.md.
 		expect(packageJson.dependencies).toEqual({
 			"@code-yeongyu/lsp-tools-mcp": "file:./packages/lsp-tools-mcp",
+			"smol-toml": "^1.8.0",
 		});
 		expect(packageJson.bin["codex-lsp"]).toBe("./dist/cli.js");
 		expect(pluginJson.hooks).toBe("./hooks/hooks.json");

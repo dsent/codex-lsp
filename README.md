@@ -145,7 +145,7 @@ The plugin ships:
 
 The runtime depends on `@code-yeongyu/lsp-tools-mcp` via `file:./packages/lsp-tools-mcp`, so packaging must include those contents. In this fork they are subtree files already present in the checkout, and the `node_modules` link that resolves the package name is committed alongside them.
 
-`.codex-plugin/plugin.json` is absent from the tracked tree — upstream generates it at pack time — so the plugin-discovery path does not work from a plain checkout. Consumers wiring the MCP server and hook directly are unaffected.
+`.codex-plugin/plugin.json` is tracked here. Upstream generates it at pack time and does not commit it, which leaves its own `package-smoke` test failing on a fresh clone; committing the manifest fixes that test and lets plugin discovery work from a plain checkout.
 
 The hook command is:
 
