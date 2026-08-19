@@ -4,9 +4,15 @@
 
 Codex plugin that ports the standalone LSP runtime from [`pi-lsp-client`](https://github.com/code-yeongyu/pi-lsp-client). It gives Codex post-edit diagnostics plus explicit MCP tools for language-aware code work.
 
+> **This is a fork.** It is consumed as a git submodule and must run straight
+> from a checkout, so it carries the runtime as a subtree instead of a submodule
+> and commits build output. **[VENDORING.md](VENDORING.md) is authoritative
+> where it and this README disagree** — the rest of this file is upstream's and
+> describes upstream's layout. Upstream: <https://github.com/code-yeongyu/codex-lsp>.
+
 ## Architecture
 
-The LSP runtime moved to [`lsp-tools-mcp`](https://github.com/code-yeongyu/lsp-tools-mcp) and is consumed here as a git submodule at `packages/lsp-tools-mcp/`.
+The LSP runtime lives in [`lsp-tools-mcp`](https://github.com/code-yeongyu/lsp-tools-mcp). Upstream consumes it as a git submodule at `packages/lsp-tools-mcp/`; this fork carries it as a squashed subtree at the same path.
 
 - `codex-lsp` keeps Codex-specific integration (`hook post-tool-use`, plugin metadata, package wiring).
 - `lsp-tools-mcp` owns MCP runtime, LSP manager, and tool implementations.
@@ -75,7 +81,9 @@ The plugin ships:
 - `hooks/hooks.json` for the `PostToolUse` diagnostics hook.
 - `skills/lsp/SKILL.md` with MCP usage guidance.
 
-The runtime depends on `@code-yeongyu/lsp-tools-mcp` via `file:./packages/lsp-tools-mcp`, so marketplace builds must include submodule contents.
+The runtime depends on `@code-yeongyu/lsp-tools-mcp` via `file:./packages/lsp-tools-mcp`, so packaging must include those contents. In this fork they are subtree files already present in the checkout, and the `node_modules` link that resolves the package name is committed alongside them.
+
+`.codex-plugin/plugin.json` is absent from the tracked tree — upstream generates it at pack time — so the plugin-discovery path does not work from a plain checkout. Consumers wiring the MCP server and hook directly are unaffected.
 
 The hook command is:
 
@@ -92,14 +100,20 @@ node ./packages/lsp-tools-mcp/dist/cli.js mcp
 ## Local Development
 
 ```bash
-git submodule update --init --recursive
-npm run bootstrap     # installs + builds the lsp-tools-mcp submodule
+# No submodule init: the runtime is a subtree, already in this checkout.
+(cd packages/lsp-tools-mcp && npm ci && npm run build)
 npm install
 npm test
 npm run typecheck
 npm run check
 npm pack --dry-run
 ```
+
+`npm run bootstrap` is a no-op in this fork. It short-circuits when
+`packages/lsp-tools-mcp/dist/cli.js` exists, and that file is committed here, so
+`prebuild` will not rebuild the runtime. Build the runtime explicitly as above
+after changing its sources or pulling the subtree, then commit the result
+(`git add -f packages/lsp-tools-mcp/dist`).
 
 The `bootstrap` script installs and builds the `lsp-tools-mcp` git submodule so
 `@code-yeongyu/lsp-tools-mcp/dist/*.js` is available for the codex-lsp build.
