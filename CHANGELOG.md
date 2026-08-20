@@ -14,6 +14,10 @@ All notable changes to this project are documented in this file.
 - Missing-server guidance now offers configuration and extension-suppression actions.
 - Development lockfile resolves patched `nanoid` 3.3.18.
 
+### Fixed
+
+- Keep the stdio MCP transport alive until its host closes the connection while retaining idle cleanup of language-server children. Legacy idle-timeout options remain accepted as no-ops.
+
 ## [0.1.0] - 2026-05-18
 
 ### Added

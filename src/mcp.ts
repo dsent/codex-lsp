@@ -36,14 +36,15 @@ export interface JsonRpcResponse {
 }
 
 export interface McpStdioServerOptions {
+	/** @deprecated The host-owned stdio transport no longer has an idle timeout. */
 	readonly idleTimeoutMs?: number;
+	/** @deprecated The host-owned stdio transport no longer invokes an idle callback. */
 	readonly onIdleTimeout?: () => void | Promise<void>;
 	readonly log?: McpLifecycleLog;
 }
 
 const SERVER_NAME = "lsp";
 const SERVER_VERSION = "0.1.0";
-const DEFAULT_IDLE_TIMEOUT_MS = 10 * 60_000;
 const noopLog: McpLifecycleLog = () => {};
 
 export async function handleLspMcpRequest(input: unknown): Promise<JsonRpcResponse | undefined> {
@@ -87,33 +88,10 @@ export async function runMcpStdioServer(
 	options: McpStdioServerOptions = {},
 ): Promise<void> {
 	const log = options.log ?? noopLog;
-	const idleTimeoutMs = options.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
-	let idleTimer: NodeJS.Timeout | null = null;
-	let closed = false;
-
-	const clearIdleTimer = () => {
-		if (idleTimer === null) return;
-		clearTimeout(idleTimer);
-		idleTimer = null;
-	};
-	const armIdleTimer = () => {
-		clearIdleTimer();
-		if (idleTimeoutMs <= 0) return;
-		idleTimer = setTimeout(() => {
-			closed = true;
-			log("idle_timeout", { idle_timeout_ms: idleTimeoutMs });
-			void options.onIdleTimeout?.();
-		}, idleTimeoutMs);
-		idleTimer.unref();
-	};
-
-	log("stdio_started", { cwd: process.cwd(), idle_timeout_ms: idleTimeoutMs });
-	armIdleTimer();
+	log("stdio_started", { cwd: process.cwd() });
 	const lines = createInterface({ input, crlfDelay: Number.POSITIVE_INFINITY });
 	try {
 		for await (const line of lines) {
-			if (closed) break;
-			armIdleTimer();
 			if (!line.trim()) continue;
 			let parsed: unknown;
 			try {
@@ -150,7 +128,6 @@ export async function runMcpStdioServer(
 			}
 		}
 	} finally {
-		clearIdleTimer();
 		log("stdio_stopped");
 	}
 }
