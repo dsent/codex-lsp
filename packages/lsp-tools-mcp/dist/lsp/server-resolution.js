@@ -1,7 +1,10 @@
-import { getDisabledServerIds, getMergedServers } from "./config-loader.js";
+import { getDisabledServerIds, getIgnoredExtensions, getMergedServers } from "./config-loader.js";
 import { BUILTIN_SERVERS, LSP_INSTALL_HINTS } from "./server-definitions.js";
 import { isServerInstalled } from "./server-installation.js";
 export function findServerForExtension(ext) {
+    if (getIgnoredExtensions().has(ext)) {
+        return { status: "ignored", extension: ext };
+    }
     const servers = getMergedServers();
     for (const server of servers) {
         if (server.extensions.includes(ext) && isServerInstalled(server.command)) {
@@ -35,6 +38,7 @@ export function findServerForExtension(ext) {
             const installHint = LSP_INSTALL_HINTS[server.id] ?? `Install '${server.command[0]}' and ensure it's in your PATH`;
             return {
                 status: "not_installed",
+                extension: ext,
                 server: {
                     id: server.id,
                     command: server.command,

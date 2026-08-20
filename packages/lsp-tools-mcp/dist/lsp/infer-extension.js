@@ -1,5 +1,6 @@
 import { lstatSync, readdirSync } from "node:fs";
-import { extname, join } from "node:path";
+import { join } from "node:path";
+import { classifyFileLanguage } from "./file-language.js";
 import { EXT_TO_LANG } from "./language-mappings.js";
 const SKIP_DIRECTORIES = new Set(["node_modules", ".git", "dist", "build", ".next", "out"]);
 const MAX_SCAN_ENTRIES = 500;
@@ -36,7 +37,7 @@ export function inferExtensionFromDirectory(directory) {
                 }
             }
             else if (stat.isFile()) {
-                const ext = extname(fullPath);
+                const { extension: ext } = classifyFileLanguage(fullPath);
                 if (ext && ext in EXT_TO_LANG) {
                     extensionCounts.set(ext, (extensionCounts.get(ext) ?? 0) + 1);
                 }

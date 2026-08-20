@@ -1,6 +1,7 @@
 import { statSync } from "node:fs";
-import { extname, resolve } from "node:path";
+import { resolve } from "node:path";
 import { isLspDeadConnectionError, LspInvalidPathError, LspRequestTimeoutError, LspServerInitializingError, LspServerLookupError, } from "./errors.js";
+import { classifyFileLanguage } from "./file-language.js";
 import { getLspManager } from "./manager.js";
 import { findServerForExtension } from "./server-resolution.js";
 import { findWorkspaceRoot } from "./workspace-root.js";
@@ -14,8 +15,11 @@ export function isDirectoryPath(filePath) {
     }
 }
 export function formatServerLookupError(result) {
+    if (result.status === "ignored") {
+        return `LSP lookup ignored for extension: ${result.extension}`;
+    }
     if (result.status === "not_installed") {
-        const { server, installHint } = result;
+        const { extension, server, installHint } = result;
         return [
             `LSP server '${server.id}' is configured but NOT INSTALLED.`,
             "",
@@ -27,6 +31,9 @@ export function formatServerLookupError(result) {
             `Supported extensions: ${server.extensions.join(", ")}`,
             "",
             "After installation, the server will be available automatically.",
+            "",
+            "Alternatively, configure a different server for this extension in '.codex/lsp-client.json',",
+            `or suppress automatic lookup by adding "${extension}" to its top-level "ignoredExtensions" array.`,
         ].join("\n");
     }
     return [
@@ -59,7 +66,7 @@ export async function withLspClient(filePath, fn, toolName, options = {}) {
         throw new LspInvalidPathError("Directory paths are not supported by this LSP tool. " +
             "Use lsp.diagnostics with a directory path for directory diagnostics.");
     }
-    const ext = extname(absPath);
+    const { extension: ext } = classifyFileLanguage(absPath);
     const result = findServerForExtension(ext);
     if (result.status !== "found") {
         throw new LspServerLookupError(formatServerLookupError(result));

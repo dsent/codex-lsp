@@ -1,5 +1,6 @@
 import type { ResolvedServer } from "./types.js";
 interface ConfigJson {
+    ignoredExtensions?: string[];
     lsp?: Record<string, unknown>;
 }
 type ConfigSource = "project" | "user";
@@ -12,5 +13,6 @@ export declare function getConfigPaths(): {
 };
 export declare function loadAllConfigs(): Map<ConfigSource, ConfigJson>;
 export declare function getMergedServers(): ServerWithSource[];
+export declare function getIgnoredExtensions(): Set<string>;
 export declare function getDisabledServerIds(): Set<string>;
 export {};

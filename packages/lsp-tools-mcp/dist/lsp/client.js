@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
-import { extname, resolve } from "node:path";
+import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { LspClientConnection } from "./connection.js";
-import { getLanguageId } from "./language-mappings.js";
+import { classifyFileLanguage } from "./file-language.js";
 const POST_OPEN_DELAY_MS = 1000;
 const POST_DIAGNOSTICS_WAIT_MS = 500;
 export class LspClient extends LspClientConnection {
@@ -21,8 +21,7 @@ export class LspClient extends LspClientConnection {
         const uri = pathToFileURL(absPath).href;
         const text = readFileSync(absPath, "utf-8");
         if (!this.openedFiles.has(absPath)) {
-            const ext = extname(absPath);
-            const languageId = getLanguageId(ext);
+            const { languageId } = classifyFileLanguage(absPath, text);
             const version = 1;
             await this.sendNotification("textDocument/didOpen", {
                 textDocument: {

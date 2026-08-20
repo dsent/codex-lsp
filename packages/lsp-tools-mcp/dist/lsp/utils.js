@@ -31,5 +31,9 @@ export function handleMissingDependencyError(error) {
     if (knownStartupFailure)
         return knownStartupFailure;
     const message = errorMessage(error);
-    return message.includes("NOT INSTALLED") || message.includes("No LSP server configured") ? message : null;
+    return message.includes("NOT INSTALLED") ||
+        message.includes("No LSP server configured") ||
+        message.includes("LSP lookup ignored")
+        ? message
+        : null;
 }

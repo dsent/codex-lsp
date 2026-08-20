@@ -1,8 +1,9 @@
 import { existsSync, lstatSync, readdirSync } from "node:fs";
-import { extname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { findWorkspaceRoot, formatServerLookupError } from "./client-wrapper.js";
 import { DEFAULT_MAX_DIAGNOSTICS, DEFAULT_MAX_DIRECTORY_FILES } from "./constants.js";
 import { LspInvalidPathError, LspServerLookupError } from "./errors.js";
+import { classifyFileLanguage } from "./file-language.js";
 import { filterDiagnosticsBySeverity, formatDiagnostic } from "./formatters.js";
 import { getLspManager } from "./manager.js";
 import { findServerForExtension } from "./server-resolution.js";
@@ -80,7 +81,7 @@ export function collectFilesWithExtension(dir, extension, maxFiles, options = {}
                     walk(fullPath);
                 }
             }
-            else if (stat.isFile() && extname(fullPath) === extension) {
+            else if (stat.isFile() && classifyFileLanguage(fullPath).extension === extension) {
                 files.push(fullPath);
             }
             throwIfAborted(signal);

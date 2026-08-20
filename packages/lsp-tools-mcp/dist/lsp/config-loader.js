@@ -103,11 +103,21 @@ export function getMergedServers() {
         return b.priority - a.priority;
     });
 }
+export function getIgnoredExtensions() {
+    const ignored = new Set();
+    for (const config of loadAllConfigs().values()) {
+        for (const extension of config.ignoredExtensions ?? []) {
+            ignored.add(extension);
+        }
+    }
+    return ignored;
+}
 function isConfigJson(value) {
     if (!isRecord(value))
         return false;
     const lsp = value["lsp"];
-    return lsp === undefined || isRecord(lsp);
+    const ignoredExtensions = value["ignoredExtensions"];
+    return ((lsp === undefined || isRecord(lsp)) && (ignoredExtensions === undefined || isExtensionArray(ignoredExtensions)));
 }
 function parseLspEntry(value) {
     return isLspEntry(value) ? value : null;
@@ -130,6 +140,9 @@ function isLspEntry(value) {
 }
 function isStringArray(value) {
     return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+function isExtensionArray(value) {
+    return isStringArray(value) && value.every((extension) => extension.startsWith(".") && extension.length > 1);
 }
 function isStringRecord(value) {
     return isRecord(value) && Object.values(value).every((item) => typeof item === "string");
