@@ -91,7 +91,6 @@ describe("lsp MCP Codex runtime", () => {
 		output.on("data", (chunk) => received.push(String(chunk)));
 
 		const server = runMcpStdioServer(input, output, {
-			idleTimeoutMs: 0,
 			log: (event, fields) => {
 				logs.push(fields === undefined ? { event } : { event, fields });
 			},

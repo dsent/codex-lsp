@@ -71,6 +71,8 @@ Path overrides via environment variables:
 - `LSP_TOOLS_MCP_PROJECT_CONFIG`
 - `LSP_TOOLS_MCP_USER_CONFIG`
 
+The MCP process remains active until its host closes the stdio connection. Idle language-server child processes are cleaned up independently.
+
 Examples (oh-my-openagent points the project config at `.opencode/lsp.json` via the env var):
 
 ```bash
