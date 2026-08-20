@@ -29,4 +29,16 @@ describe("collectFilesWithExtension", () => {
 		// then
 		expect(files).toHaveLength(2);
 	});
+
+	it("includes extensionless bash and sh scripts when collecting shell files", () => {
+		const root = mkdtempSync(join(tmpdir(), "codex-lsp-directory-"));
+		tempDirectories.push(root);
+		writeFileSync(join(root, "bash-script"), "#!/usr/bin/env bash\necho bash\n");
+		writeFileSync(join(root, "sh-script"), "#!/bin/sh\necho sh\n");
+		writeFileSync(join(root, "python-script"), "#!/usr/bin/env python3\nprint('python')\n");
+
+		const files = collectFilesWithExtension(root, ".sh", 10);
+
+		expect(files.map((file) => file.slice(root.length + 1)).sort()).toEqual(["bash-script", "sh-script"]);
+	});
 });

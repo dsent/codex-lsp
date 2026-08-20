@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
-import { extname, resolve } from "node:path";
+import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { LspClientConnection } from "./connection.js";
-import { getLanguageId } from "./language-mappings.js";
+import { classifyFileLanguage } from "./file-language.js";
 import type {
 	Diagnostic,
 	DocumentSymbol,
@@ -35,8 +35,7 @@ export class LspClient extends LspClientConnection {
 		const text = readFileSync(absPath, "utf-8");
 
 		if (!this.openedFiles.has(absPath)) {
-			const ext = extname(absPath);
-			const languageId = getLanguageId(ext);
+			const { languageId } = classifyFileLanguage(absPath, text);
 			const version = 1;
 
 			await this.sendNotification("textDocument/didOpen", {

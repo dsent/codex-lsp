@@ -1,5 +1,5 @@
 import { statSync } from "node:fs";
-import { extname, resolve } from "node:path";
+import { resolve } from "node:path";
 
 import type { LspClient } from "./client.js";
 import {
@@ -9,6 +9,7 @@ import {
 	LspServerInitializingError,
 	LspServerLookupError,
 } from "./errors.js";
+import { classifyFileLanguage } from "./file-language.js";
 import { getLspManager, type LspManager } from "./manager.js";
 import { findServerForExtension } from "./server-resolution.js";
 import type { ServerLookupResult } from "./types.js";
@@ -26,8 +27,12 @@ export function isDirectoryPath(filePath: string): boolean {
 }
 
 export function formatServerLookupError(result: Exclude<ServerLookupResult, { status: "found" }>): string {
+	if (result.status === "ignored") {
+		return `LSP lookup ignored for extension: ${result.extension}`;
+	}
+
 	if (result.status === "not_installed") {
-		const { server, installHint } = result;
+		const { extension, server, installHint } = result;
 		return [
 			`LSP server '${server.id}' is configured but NOT INSTALLED.`,
 			"",
@@ -39,6 +44,9 @@ export function formatServerLookupError(result: Exclude<ServerLookupResult, { st
 			`Supported extensions: ${server.extensions.join(", ")}`,
 			"",
 			"After installation, the server will be available automatically.",
+			"",
+			"Alternatively, configure a different server for this extension in '.codex/lsp-client.json',",
+			`or suppress automatic lookup by adding "${extension}" to its top-level "ignoredExtensions" array.`,
 		].join("\n");
 	}
 
@@ -89,7 +97,7 @@ export async function withLspClient<T>(
 		);
 	}
 
-	const ext = extname(absPath);
+	const { extension: ext } = classifyFileLanguage(absPath);
 	const result = findServerForExtension(ext);
 	if (result.status !== "found") {
 		throw new LspServerLookupError(formatServerLookupError(result));
