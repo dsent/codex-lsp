@@ -15,7 +15,7 @@ Refresh it with:
 
 ```bash
 git subtree pull --prefix=packages/lsp-tools-mcp \
-  https://github.com/code-yeongyu/lsp-tools-mcp.git main --squash
+  https://github.com/dsent/lsp-tools-mcp.git main --squash
 ```
 
 Upstream changes that move the old submodule pointer will conflict at that path.

@@ -2,7 +2,6 @@ import { createInterface } from "node:readline";
 import { coerceToolArguments, executeLspTool, LSP_MCP_TOOLS } from "./tools.js";
 const SERVER_NAME = "lsp";
 const SERVER_VERSION = "0.1.0";
-const DEFAULT_IDLE_TIMEOUT_MS = 10 * 60_000;
 const noopLog = () => { };
 export async function handleLspMcpRequest(input) {
     if (!isRecord(input)) {
@@ -38,34 +37,10 @@ export async function handleLspMcpRequest(input) {
 }
 export async function runMcpStdioServer(input = process.stdin, output = process.stdout, options = {}) {
     const log = options.log ?? noopLog;
-    const idleTimeoutMs = options.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
-    let idleTimer = null;
-    let closed = false;
-    const clearIdleTimer = () => {
-        if (idleTimer === null)
-            return;
-        clearTimeout(idleTimer);
-        idleTimer = null;
-    };
-    const armIdleTimer = () => {
-        clearIdleTimer();
-        if (idleTimeoutMs <= 0)
-            return;
-        idleTimer = setTimeout(() => {
-            closed = true;
-            log("idle_timeout", { idle_timeout_ms: idleTimeoutMs });
-            void options.onIdleTimeout?.();
-        }, idleTimeoutMs);
-        idleTimer.unref();
-    };
-    log("stdio_started", { cwd: process.cwd(), idle_timeout_ms: idleTimeoutMs });
-    armIdleTimer();
+    log("stdio_started", { cwd: process.cwd() });
     const lines = createInterface({ input, crlfDelay: Number.POSITIVE_INFINITY });
     try {
         for await (const line of lines) {
-            if (closed)
-                break;
-            armIdleTimer();
             if (!line.trim())
                 continue;
             let parsed;
@@ -104,7 +79,6 @@ export async function runMcpStdioServer(input = process.stdin, output = process.
         }
     }
     finally {
-        clearIdleTimer();
         log("stdio_stopped");
     }
 }

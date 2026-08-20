@@ -14,10 +14,6 @@ async function main() {
             try {
                 await runMcpStdioServer(process.stdin, process.stdout, {
                     log: writeMcpLifecycleLog,
-                    onIdleTimeout: async () => {
-                        await disposeDefaultLspManager();
-                        process.exit(0);
-                    },
                 });
             }
             finally {
