@@ -80,6 +80,7 @@ module graph: every tool call returns `ERR_MODULE_NOT_FOUND`, not merely Rust
 support degrading.
 
 Committing the package works around it. The actual fix is to make the import
-lazy, or to promote the dependency, and belongs upstream. Open that pull request
-from <https://github.com/dsent/lsp-tools-mcp>, which exists only as a
-contribution vehicle and is not consumed by anything.
+lazy, or to promote the dependency, and belongs upstream. Keep harness-neutral
+runtime changes in <https://github.com/dsent/lsp-tools-mcp>; this repository
+consumes them as a vendored snapshot, while other MCP-capable harnesses can
+consume that repository directly.

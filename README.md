@@ -27,7 +27,8 @@ The LSP runtime lives in [`lsp-tools-mcp`](https://github.com/code-yeongyu/lsp-t
 | diagnostics contain errors | returns Codex `PostToolUse` blocking feedback and injects the same diagnostics as additional context so Codex fixes the file |
 | no diagnostics | emits no hook output |
 | unsupported extension | emits no hook output |
-| missing configured language server | surfaces the install/config message through hook or MCP output |
+| ignored extension | performs no server lookup and emits no hook output |
+| missing configured language server | surfaces install/config/ignore guidance once per missing server per Codex session; explicit MCP calls still report it |
 
 Deletes are ignored because they cannot introduce new diagnostics.
 
@@ -61,6 +62,7 @@ Example:
 
 ```json
 {
+	"ignoredExtensions": [".json", ".jsonc"],
 	"lsp": {
 		"typescript": {
 			"command": ["typescript-language-server", "--stdio"],
@@ -71,6 +73,8 @@ Example:
 ```
 
 Built-in server definitions are used when no custom config overrides them. `lsp.status` shows which configured servers are installed or missing.
+
+Ignored extensions short-circuit server resolution before command lookup. Extensionless files with `bash` or `sh` shebangs route through the `.sh` server with the `shellscript` language ID.
 
 ## Using this fork as a submodule
 

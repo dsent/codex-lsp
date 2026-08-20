@@ -1,3 +1,7 @@
+import { createHash } from "node:crypto";
+import { closeSync, mkdirSync, openSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { stdin as processStdin } from "node:process";
 
 import { executeLspDiagnostics } from "@code-yeongyu/lsp-tools-mcp/dist/tools.js";
@@ -5,9 +9,15 @@ import { executeLspDiagnostics } from "@code-yeongyu/lsp-tools-mcp/dist/tools.js
 export type DiagnosticsRunner = (filePath: string) => Promise<string>;
 
 export interface CodexPostToolUseInput {
+	session_id?: unknown;
+	transcript_path?: unknown;
 	tool_name?: unknown;
 	tool_input?: unknown;
 	tool_response?: unknown;
+}
+
+export interface MissingServerNoticeStore {
+	claim(sessionKey: string, serverId: string): boolean;
 }
 
 interface DiagnosticBlock {
@@ -27,6 +37,10 @@ interface PostToolUseHookOutput {
 const MUTATION_TOOL_NAMES = new Set(["apply_patch", "write", "edit", "multiedit", "multi_edit"]);
 const CLEAN_DIAGNOSTICS_TEXT = "No diagnostics found";
 const UNSUPPORTED_EXTENSION_TEXT = "No LSP server configured for extension:";
+const IGNORED_EXTENSION_TEXT = "LSP lookup ignored for extension:";
+const MISSING_SERVER_PATTERN = /^LSP server '([^'\n]+)' is configured but NOT INSTALLED\./;
+
+const defaultMissingServerNoticeStore = createFileMissingServerNoticeStore();
 
 export async function runLspDiagnosticsText(filePath: string): Promise<string> {
 	const result = await executeLspDiagnostics({ filePath, severity: "error" });
@@ -36,6 +50,7 @@ export async function runLspDiagnosticsText(filePath: string): Promise<string> {
 export async function runLspPostToolUseHook(
 	input: CodexPostToolUseInput,
 	runDiagnostics: DiagnosticsRunner = runLspDiagnosticsText,
+	missingServerNotices: MissingServerNoticeStore = defaultMissingServerNoticeStore,
 ): Promise<string> {
 	const filePaths = extractMutatedFilePaths(input);
 	if (filePaths.length === 0) return "";
@@ -44,6 +59,10 @@ export async function runLspPostToolUseHook(
 	for (const filePath of filePaths) {
 		const diagnostics = (await runDiagnostics(filePath)).trim();
 		if (isCleanDiagnostics(diagnostics)) continue;
+		const missingServerId = extractMissingServerId(diagnostics);
+		if (missingServerId !== undefined && !shouldSurfaceMissingServer(input, missingServerId, missingServerNotices)) {
+			continue;
+		}
 		blocks.push({ filePath, diagnostics });
 	}
 
@@ -61,6 +80,24 @@ export async function runLspPostToolUseHook(
 		},
 	};
 	return `${JSON.stringify(output)}\n`;
+}
+
+export function createFileMissingServerNoticeStore(
+	directory: string = defaultNoticeDirectory(),
+): MissingServerNoticeStore {
+	return {
+		claim(sessionKey, serverId) {
+			try {
+				mkdirSync(directory, { recursive: true, mode: 0o700 });
+				const markerName = createHash("sha256").update(sessionKey).update("\0").update(serverId).digest("hex");
+				const fileDescriptor = openSync(join(directory, markerName), "wx", 0o600);
+				closeSync(fileDescriptor);
+				return true;
+			} catch (error) {
+				return !isAlreadyExistsError(error);
+			}
+		},
+	};
 }
 
 export function extractMutatedFilePaths(input: CodexPostToolUseInput): string[] {
@@ -99,8 +136,39 @@ function isCleanDiagnostics(diagnostics: string): boolean {
 	return (
 		diagnostics.length === 0 ||
 		diagnostics === CLEAN_DIAGNOSTICS_TEXT ||
-		diagnostics.startsWith(UNSUPPORTED_EXTENSION_TEXT)
+		diagnostics.startsWith(UNSUPPORTED_EXTENSION_TEXT) ||
+		diagnostics.startsWith(IGNORED_EXTENSION_TEXT)
 	);
+}
+
+function extractMissingServerId(diagnostics: string): string | undefined {
+	return MISSING_SERVER_PATTERN.exec(diagnostics)?.[1];
+}
+
+function shouldSurfaceMissingServer(
+	input: CodexPostToolUseInput,
+	serverId: string,
+	missingServerNotices: MissingServerNoticeStore,
+): boolean {
+	const sessionKey = stringValue(input.session_id) ?? stringValue(input.transcript_path);
+	return sessionKey === undefined || missingServerNotices.claim(sessionKey, serverId);
+}
+
+function stringValue(value: unknown): string | undefined {
+	return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function defaultNoticeDirectory(): string {
+	const runtimeDirectory = process.env["XDG_RUNTIME_DIR"];
+	if (runtimeDirectory !== undefined && runtimeDirectory.length > 0) {
+		return join(runtimeDirectory, "codex-lsp", "missing-server-notices");
+	}
+	const userId = typeof process.getuid === "function" ? process.getuid() : "unknown";
+	return join(tmpdir(), `codex-lsp-${userId}`, "missing-server-notices");
+}
+
+function isAlreadyExistsError(error: unknown): boolean {
+	return isRecord(error) && error["code"] === "EEXIST";
 }
 
 function isFailedToolResponse(value: unknown): boolean {

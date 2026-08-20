@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Report each missing configured language server once per Codex session.
+- Keep source diagnostics repeatable while silencing explicitly ignored extensions.
+
 ## 0.2.0
 
 - Extracted the LSP runtime and MCP server into [`@code-yeongyu/lsp-tools-mcp`](https://github.com/code-yeongyu/lsp-tools-mcp).

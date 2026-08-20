@@ -1,13 +1,20 @@
+import { createHash } from "node:crypto";
+import { closeSync, mkdirSync, openSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { stdin as processStdin } from "node:process";
 import { executeLspDiagnostics } from "@code-yeongyu/lsp-tools-mcp/dist/tools.js";
 const MUTATION_TOOL_NAMES = new Set(["apply_patch", "write", "edit", "multiedit", "multi_edit"]);
 const CLEAN_DIAGNOSTICS_TEXT = "No diagnostics found";
 const UNSUPPORTED_EXTENSION_TEXT = "No LSP server configured for extension:";
+const IGNORED_EXTENSION_TEXT = "LSP lookup ignored for extension:";
+const MISSING_SERVER_PATTERN = /^LSP server '([^'\n]+)' is configured but NOT INSTALLED\./;
+const defaultMissingServerNoticeStore = createFileMissingServerNoticeStore();
 export async function runLspDiagnosticsText(filePath) {
     const result = await executeLspDiagnostics({ filePath, severity: "error" });
     return result.content.map((block) => block.text).join("\n");
 }
-export async function runLspPostToolUseHook(input, runDiagnostics = runLspDiagnosticsText) {
+export async function runLspPostToolUseHook(input, runDiagnostics = runLspDiagnosticsText, missingServerNotices = defaultMissingServerNoticeStore) {
     const filePaths = extractMutatedFilePaths(input);
     if (filePaths.length === 0)
         return "";
@@ -16,6 +23,10 @@ export async function runLspPostToolUseHook(input, runDiagnostics = runLspDiagno
         const diagnostics = (await runDiagnostics(filePath)).trim();
         if (isCleanDiagnostics(diagnostics))
             continue;
+        const missingServerId = extractMissingServerId(diagnostics);
+        if (missingServerId !== undefined && !shouldSurfaceMissingServer(input, missingServerId, missingServerNotices)) {
+            continue;
+        }
         blocks.push({ filePath, diagnostics });
     }
     if (blocks.length === 0)
@@ -32,6 +43,22 @@ export async function runLspPostToolUseHook(input, runDiagnostics = runLspDiagno
         },
     };
     return `${JSON.stringify(output)}\n`;
+}
+export function createFileMissingServerNoticeStore(directory = defaultNoticeDirectory()) {
+    return {
+        claim(sessionKey, serverId) {
+            try {
+                mkdirSync(directory, { recursive: true, mode: 0o700 });
+                const markerName = createHash("sha256").update(sessionKey).update("\0").update(serverId).digest("hex");
+                const fileDescriptor = openSync(join(directory, markerName), "wx", 0o600);
+                closeSync(fileDescriptor);
+                return true;
+            }
+            catch (error) {
+                return !isAlreadyExistsError(error);
+            }
+        },
+    };
 }
 export function extractMutatedFilePaths(input) {
     if (!isMutationTool(input.tool_name))
@@ -69,7 +96,29 @@ function isMutationTool(value) {
 function isCleanDiagnostics(diagnostics) {
     return (diagnostics.length === 0 ||
         diagnostics === CLEAN_DIAGNOSTICS_TEXT ||
-        diagnostics.startsWith(UNSUPPORTED_EXTENSION_TEXT));
+        diagnostics.startsWith(UNSUPPORTED_EXTENSION_TEXT) ||
+        diagnostics.startsWith(IGNORED_EXTENSION_TEXT));
+}
+function extractMissingServerId(diagnostics) {
+    return MISSING_SERVER_PATTERN.exec(diagnostics)?.[1];
+}
+function shouldSurfaceMissingServer(input, serverId, missingServerNotices) {
+    const sessionKey = stringValue(input.session_id) ?? stringValue(input.transcript_path);
+    return sessionKey === undefined || missingServerNotices.claim(sessionKey, serverId);
+}
+function stringValue(value) {
+    return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+function defaultNoticeDirectory() {
+    const runtimeDirectory = process.env["XDG_RUNTIME_DIR"];
+    if (runtimeDirectory !== undefined && runtimeDirectory.length > 0) {
+        return join(runtimeDirectory, "codex-lsp", "missing-server-notices");
+    }
+    const userId = typeof process.getuid === "function" ? process.getuid() : "unknown";
+    return join(tmpdir(), `codex-lsp-${userId}`, "missing-server-notices");
+}
+function isAlreadyExistsError(error) {
+    return isRecord(error) && error["code"] === "EEXIST";
 }
 function isFailedToolResponse(value) {
     if (!isRecord(value))
