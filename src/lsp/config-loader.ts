@@ -15,6 +15,7 @@ interface LspEntry {
 }
 
 interface ConfigJson {
+	ignoredExtensions?: string[];
 	lsp?: Record<string, unknown>;
 }
 
@@ -131,10 +132,23 @@ export function getMergedServers(): ServerWithSource[] {
 	});
 }
 
+export function getIgnoredExtensions(): Set<string> {
+	const ignored = new Set<string>();
+	for (const config of loadAllConfigs().values()) {
+		for (const extension of config.ignoredExtensions ?? []) {
+			ignored.add(extension);
+		}
+	}
+	return ignored;
+}
+
 function isConfigJson(value: unknown): value is ConfigJson {
 	if (!isRecord(value)) return false;
 	const lsp = value["lsp"];
-	return lsp === undefined || isRecord(lsp);
+	const ignoredExtensions = value["ignoredExtensions"];
+	return (
+		(lsp === undefined || isRecord(lsp)) && (ignoredExtensions === undefined || isExtensionArray(ignoredExtensions))
+	);
 }
 
 function parseLspEntry(value: unknown): LspEntry | null {
@@ -161,6 +175,10 @@ function isLspEntry(value: unknown): value is LspEntry {
 
 function isStringArray(value: unknown): value is string[] {
 	return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function isExtensionArray(value: unknown): value is string[] {
+	return isStringArray(value) && value.every((extension) => extension.startsWith(".") && extension.length > 1);
 }
 
 function isStringRecord(value: unknown): value is Record<string, string> {

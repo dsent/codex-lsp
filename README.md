@@ -56,6 +56,16 @@ Default config paths (matches codex-lsp's historical layout):
 - Project: `.codex/lsp-client.json`
 - User: `~/.codex/lsp-client.json`
 
+Project and user configuration can suppress automatic lookup for selected extensions before any server command is resolved:
+
+```json
+{
+  "ignoredExtensions": [".json", ".jsonc"]
+}
+```
+
+Extensionless files with `bash` or `sh` shebangs are routed as `.sh` with the `shellscript` language ID. Direct interpreter paths, `env`, and `env -S` shebangs are supported.
+
 Path overrides via environment variables:
 
 - `LSP_TOOLS_MCP_PROJECT_CONFIG`

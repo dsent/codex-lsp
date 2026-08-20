@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file.
 
+## Unreleased
+
+### Added
+
+- Top-level `ignoredExtensions` configuration that short-circuits server command lookup.
+- Extensionless `bash` and `sh` shebang routing through the `.sh` language server.
+
+### Changed
+
+- Missing-server guidance now offers configuration and extension-suppression actions.
+- Development lockfile resolves patched `nanoid` 3.3.18.
+
 ## [0.1.0] - 2026-05-18
 
 ### Added

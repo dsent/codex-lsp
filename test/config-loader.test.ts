@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join, sep } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { getConfigPaths, getMergedServers } from "../src/lsp/config-loader.js";
+import { getConfigPaths, getIgnoredExtensions, getMergedServers } from "../src/lsp/config-loader.js";
 
 const tempDirectories: string[] = [];
 
@@ -125,6 +125,34 @@ describe("config loader", () => {
 				process.env["LSP_TOOLS_MCP_PROJECT_CONFIG"] = previousProject;
 			}
 
+			if (previousUser === undefined) {
+				delete process.env["LSP_TOOLS_MCP_USER_CONFIG"];
+			} else {
+				process.env["LSP_TOOLS_MCP_USER_CONFIG"] = previousUser;
+			}
+		}
+	});
+
+	it("merges ignored extensions from project and user configuration", () => {
+		const previousProject = process.env["LSP_TOOLS_MCP_PROJECT_CONFIG"];
+		const previousUser = process.env["LSP_TOOLS_MCP_USER_CONFIG"];
+		const root = mkdtempSync(join(tmpdir(), "lsp-tools-config-"));
+		tempDirectories.push(root);
+		const projectConfig = join(root, "project.json");
+		const userConfig = join(root, "user.json");
+		writeFileSync(projectConfig, JSON.stringify({ ignoredExtensions: [".json", ".jsonc"] }));
+		writeFileSync(userConfig, JSON.stringify({ ignoredExtensions: [".jsonc", ".md"] }));
+		process.env["LSP_TOOLS_MCP_PROJECT_CONFIG"] = projectConfig;
+		process.env["LSP_TOOLS_MCP_USER_CONFIG"] = userConfig;
+
+		try {
+			expect(getIgnoredExtensions()).toEqual(new Set([".json", ".jsonc", ".md"]));
+		} finally {
+			if (previousProject === undefined) {
+				delete process.env["LSP_TOOLS_MCP_PROJECT_CONFIG"];
+			} else {
+				process.env["LSP_TOOLS_MCP_PROJECT_CONFIG"] = previousProject;
+			}
 			if (previousUser === undefined) {
 				delete process.env["LSP_TOOLS_MCP_USER_CONFIG"];
 			} else {

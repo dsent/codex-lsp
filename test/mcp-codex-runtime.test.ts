@@ -59,6 +59,28 @@ describe("lsp MCP Codex runtime", () => {
 		}
 	});
 
+	it("routes an extensionless sh script through a server configured for .sh", async () => {
+		const fixture = createConfiguredShellFixture();
+
+		try {
+			const diagnostics = await handleLspMcpRequest({
+				jsonrpc: "2.0",
+				id: 5,
+				method: "tools/call",
+				params: { name: "diagnostics", arguments: { filePath: fixture.filePath, severity: "error" } },
+			});
+
+			expect(diagnostics).toMatchObject({
+				jsonrpc: "2.0",
+				id: 5,
+				result: { isError: false },
+			});
+			expect(diagnostics?.result?.content?.[0]?.text).toBe("No diagnostics found");
+		} finally {
+			await fixture.dispose();
+		}
+	});
+
 	it("#given an unavailable LSP dependency #when diagnostics runs over stdio #then logs actionable guidance before staying alive", async () => {
 		// given
 		const fixture = createMissingServerFixture();
@@ -93,6 +115,9 @@ describe("lsp MCP Codex runtime", () => {
 			const response = parseJsonRpcResponse(received.join("").trim());
 			expect(response.result?.content?.[0]?.text).toContain("LSP server 'missing' is configured but NOT INSTALLED.");
 			expect(response.result?.content?.[0]?.text).toContain("Command not found: definitely-missing-lsp");
+			expect(response.result?.content?.[0]?.text).toContain(
+				'adding ".missing" to its top-level "ignoredExtensions" array',
+			);
 			expect(logs).toContainEqual(
 				expect.objectContaining({
 					event: "tool_error",
@@ -124,6 +149,27 @@ function createConfiguredFakeLspFixture(): { readonly filePath: string; readonly
 				fake: {
 					command: [process.execPath, serverPath],
 					extensions: [".fake"],
+				},
+			},
+		}),
+	);
+	return createFixture(root, configPath, filePath);
+}
+
+function createConfiguredShellFixture(): { readonly filePath: string; readonly dispose: () => Promise<void> } {
+	const root = mkdtempSync(join(tmpdir(), "lsp-mcp-shell-"));
+	const serverPath = join(root, "fake-lsp-server.mjs");
+	const configPath = join(root, "lsp-client.json");
+	const filePath = join(root, "script");
+	writeFileSync(serverPath, fakeLspServerSource());
+	writeFileSync(filePath, "#!/usr/bin/env sh\necho shell\n");
+	writeFileSync(
+		configPath,
+		JSON.stringify({
+			lsp: {
+				shell: {
+					command: [process.execPath, serverPath],
+					extensions: [".sh"],
 				},
 			},
 		}),

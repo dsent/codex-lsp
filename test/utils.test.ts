@@ -64,9 +64,11 @@ describe("handleMissingDependencyError", () => {
 		// given
 		const notInstalled = new Error("LSP server 'typescript' is configured but NOT INSTALLED.");
 		const notConfigured = new Error("No LSP server configured for extension: .md");
+		const ignored = new Error("LSP lookup ignored for extension: .json");
 
 		// when / then
 		expect(handleMissingDependencyError(notInstalled)).toBe(notInstalled.message);
 		expect(handleMissingDependencyError(notConfigured)).toBe(notConfigured.message);
+		expect(handleMissingDependencyError(ignored)).toBe(ignored.message);
 	});
 });
