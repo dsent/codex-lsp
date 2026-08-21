@@ -8,6 +8,7 @@ All notable changes to this project are documented in this file.
 
 - Top-level `ignoredExtensions` configuration that short-circuits server command lookup.
 - Extensionless `bash` and `sh` shebang routing through the `.sh` language server.
+- `.lsp-root` as an explicit workspace boundary for source trees without a suitable project marker.
 
 ### Changed
 

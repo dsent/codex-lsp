@@ -4,7 +4,16 @@ import { dirname, join, resolve } from "node:path";
 import { type CargoWorkspaceRootOptions, resolveCargoWorkspaceRoot } from "./cargo-workspace-root.js";
 import type { ResolvedServer } from "./types.js";
 
-const WORKSPACE_MARKERS = [".git", "package.json", "pyproject.toml", "Cargo.toml", "go.mod", "pom.xml", "build.gradle"];
+const WORKSPACE_MARKERS = [
+	".lsp-root",
+	".git",
+	"package.json",
+	"pyproject.toml",
+	"Cargo.toml",
+	"go.mod",
+	"pom.xml",
+	"build.gradle",
+];
 
 export type { CargoMetadataLoader } from "./cargo-workspace-root.js";
 export interface FindWorkspaceRootOptions extends CargoWorkspaceRootOptions {}
