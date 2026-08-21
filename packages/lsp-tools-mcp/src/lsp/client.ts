@@ -109,7 +109,8 @@ export class LspClient extends LspClientConnection {
 	}
 
 	async workspaceSymbols(query: string): Promise<SymbolInfo[]> {
-		return this.sendRequest<SymbolInfo[]>("workspace/symbol", { query });
+		const symbols = await this.sendRequest<SymbolInfo[] | null>("workspace/symbol", { query });
+		return symbols ?? [];
 	}
 
 	private isUnsupportedDiagnosticPullError(error: unknown): boolean {

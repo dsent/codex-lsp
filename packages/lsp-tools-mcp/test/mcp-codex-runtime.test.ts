@@ -43,6 +43,24 @@ describe("lsp MCP Codex runtime", () => {
 				method: "tools/call",
 				params: { name: "diagnostics", arguments: { filePath: fixture.filePath, severity: "error" } },
 			});
+			const symbols = await handleLspMcpRequest({
+				jsonrpc: "2.0",
+				id: 5,
+				method: "tools/call",
+				params: {
+					name: "symbols",
+					arguments: { filePath: fixture.filePath, scope: "workspace", query: "missing" },
+				},
+			});
+			const knownSymbols = await handleLspMcpRequest({
+				jsonrpc: "2.0",
+				id: 6,
+				method: "tools/call",
+				params: {
+					name: "symbols",
+					arguments: { filePath: fixture.filePath, scope: "workspace", query: "known" },
+				},
+			});
 
 			// then
 			expect(initialize?.result?.serverInfo?.["name"]).toBe("lsp");
@@ -54,6 +72,34 @@ describe("lsp MCP Codex runtime", () => {
 				result: { isError: false },
 			});
 			expect(diagnostics?.result?.content?.[0]?.text).toBe("No diagnostics found");
+			expect(symbols).toMatchObject({
+				jsonrpc: "2.0",
+				id: 5,
+				result: { isError: false },
+			});
+			expect(symbols?.result?.content?.[0]?.text).toBe("No symbols found");
+			expect(symbols?.result?.["details"]).toMatchObject({
+				scope: "workspace",
+				query: "missing",
+				symbols: [],
+				totalSymbols: 0,
+				truncated: false,
+			});
+			expect(knownSymbols).toMatchObject({
+				jsonrpc: "2.0",
+				id: 6,
+				result: {
+					isError: false,
+					details: {
+						scope: "workspace",
+						query: "known",
+						symbols: [{ name: "KnownSymbol", kind: 12 }],
+						totalSymbols: 1,
+						truncated: false,
+					},
+				},
+			});
+			expect(knownSymbols?.result?.content?.[0]?.text).toContain("KnownSymbol (Function)");
 		} finally {
 			await fixture.dispose();
 		}
