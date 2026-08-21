@@ -5,6 +5,7 @@
 - Report each missing configured language server once per Codex session.
 - Keep source diagnostics repeatable while silencing explicitly ignored extensions.
 - Keep the host-owned LSP MCP transport alive for the full Codex session while reaping idle language-server children independently.
+- Treat `null` workspace-symbol responses as empty results.
 
 ## 0.2.0
 

@@ -78,7 +78,8 @@ export class LspClient extends LspClientConnection {
         });
     }
     async workspaceSymbols(query) {
-        return this.sendRequest("workspace/symbol", { query });
+        const symbols = await this.sendRequest("workspace/symbol", { query });
+        return symbols ?? [];
     }
     isUnsupportedDiagnosticPullError(error) {
         if (!(error instanceof Error))
