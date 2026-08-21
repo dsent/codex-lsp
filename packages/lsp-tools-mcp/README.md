@@ -66,6 +66,12 @@ Project and user configuration can suppress automatic lookup for selected extens
 
 Extensionless files with `bash` or `sh` shebangs are routed as `.sh` with the `shellscript` language ID. Direct interpreter paths, `env`, and `env -S` shebangs are supported.
 
+### Workspace roots
+
+Rust files first resolve their Cargo workspace through `cargo metadata`. Other files, and Rust files when Cargo resolution is unavailable, walk upward from the source file and select the nearest directory containing `.lsp-root`, `.git`, `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `pom.xml`, or `build.gradle`. When no marker exists, discovery uses the source file's directory.
+
+Create an empty `.lsp-root` file at the intended boundary for source trees that do not use another recognized marker or that live below an unrelated ancestor project. This avoids creating a fake `.git` directory, which can interfere with Git itself.
+
 Path overrides via environment variables:
 
 - `LSP_TOOLS_MCP_PROJECT_CONFIG`

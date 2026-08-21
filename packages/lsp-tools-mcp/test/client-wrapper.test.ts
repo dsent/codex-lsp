@@ -259,6 +259,16 @@ describe("findWorkspaceRoot", () => {
 		expect(metadataLoader).not.toHaveBeenCalled();
 	});
 
+	it("uses a local .lsp-root before an ancestor project marker", async () => {
+		// Given
+		write(".git/HEAD", "ref: refs/heads/main\n");
+		write("isolated/.lsp-root");
+		const file = write("isolated/sub/deep/script", "#!/usr/bin/env sh\n");
+
+		// When / Then
+		await expect(findWorkspaceRoot(file)).resolves.toBe(join(root, "isolated"));
+	});
+
 	it("falls back to the nearest marker for a Rust file outside any Cargo project", async () => {
 		// Given
 		write(".git/HEAD", "ref: refs/heads/main\n");
