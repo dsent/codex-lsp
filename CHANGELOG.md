@@ -17,6 +17,7 @@ All notable changes to this project are documented in this file.
 ### Fixed
 
 - Keep the stdio MCP transport alive until its host closes the connection while retaining idle cleanup of language-server children. Legacy idle-timeout options remain accepted as no-ops.
+- Treat `null` workspace-symbol responses as an empty result set.
 
 ## [0.1.0] - 2026-05-18
 
