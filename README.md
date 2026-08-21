@@ -128,9 +128,12 @@ startup_timeout_sec = 30
 - **Codex scopes project config to the git root it starts in.** Started inside a
   submodule, it reads that submodule's `.codex/`, not the superproject's, and
   reports zero MCP servers. Launch agents from the top level.
-- **Language servers need a VCS root.** `lua-language-server` publishes no
-  diagnostics for a directory that is not under version control, so the hook is
-  silent there. That is correct behaviour, not a failure.
+- **Workspace roots are marker-based.** The runtime uses Cargo workspace metadata
+  for Rust and the nearest recognized project marker otherwise. Add an empty
+  `.lsp-root` file to define an explicit boundary without creating a fake Git
+  repository. Individual language servers may still require VCS metadata;
+  `lua-language-server`, for example, publishes no diagnostics outside version
+  control.
 - **Verify without spending model calls.** `codex doctor` reports whether the
   server is configured; piping an `initialize` plus `tools/list` into
   `packages/lsp-tools-mcp/dist/cli.js mcp` proves it actually runs. CI does

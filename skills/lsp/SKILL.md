@@ -33,3 +33,5 @@ Project config lives at `.codex/lsp-client.json`; user config lives at `~/.codex
 ```
 
 Use `lsp.status` first when diagnostics report a missing language server.
+
+If `lsp.status` reports an unintended ancestor workspace, add an empty `.lsp-root` file at the intended source-tree boundary. Do not create a fake `.git` directory.

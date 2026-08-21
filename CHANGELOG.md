@@ -6,6 +6,7 @@
 - Keep source diagnostics repeatable while silencing explicitly ignored extensions.
 - Keep the host-owned LSP MCP transport alive for the full Codex session while reaping idle language-server children independently.
 - Treat `null` workspace-symbol responses as empty results.
+- Recognize `.lsp-root` as an explicit language-server workspace boundary.
 
 ## 0.2.0
 

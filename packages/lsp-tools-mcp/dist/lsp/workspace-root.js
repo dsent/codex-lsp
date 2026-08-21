@@ -1,7 +1,16 @@
 import { existsSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { resolveCargoWorkspaceRoot } from "./cargo-workspace-root.js";
-const WORKSPACE_MARKERS = [".git", "package.json", "pyproject.toml", "Cargo.toml", "go.mod", "pom.xml", "build.gradle"];
+const WORKSPACE_MARKERS = [
+    ".lsp-root",
+    ".git",
+    "package.json",
+    "pyproject.toml",
+    "Cargo.toml",
+    "go.mod",
+    "pom.xml",
+    "build.gradle",
+];
 function isDirectoryPath(filePath) {
     try {
         return statSync(filePath).isDirectory();
