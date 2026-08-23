@@ -1,6 +1,6 @@
 ---
 name: lsp
-description: Use when Codex needs language-server diagnostics, definitions, references, symbols, or rename safety checks in the current workspace.
+description: Use when Codex needs language-server diagnostics, definitions, references, symbols, or rename safety checks in the current workspace. Kotlin needs special handling; read [references/kotlin.md](references/kotlin.md).
 ---
 
 # Codex LSP
