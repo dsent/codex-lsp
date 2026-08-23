@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { closeSync, mkdirSync, openSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { extname, join } from "node:path";
 import { stdin as processStdin } from "node:process";
 
 import { executeLspDiagnostics } from "@code-yeongyu/lsp-tools-mcp/dist/tools.js";
@@ -39,6 +39,7 @@ const CLEAN_DIAGNOSTICS_TEXT = "No diagnostics found";
 const UNSUPPORTED_EXTENSION_TEXT = "No LSP server configured for extension:";
 const IGNORED_EXTENSION_TEXT = "LSP lookup ignored for extension:";
 const MISSING_SERVER_PATTERN = /^LSP server '([^'\n]+)' is configured but NOT INSTALLED\./;
+const HOOK_IGNORED_EXTENSIONS_ENV = "CODEX_LSP_HOOK_IGNORED_EXTENSIONS";
 
 const defaultMissingServerNoticeStore = createFileMissingServerNoticeStore();
 
@@ -51,8 +52,11 @@ export async function runLspPostToolUseHook(
 	input: CodexPostToolUseInput,
 	runDiagnostics: DiagnosticsRunner = runLspDiagnosticsText,
 	missingServerNotices: MissingServerNoticeStore = defaultMissingServerNoticeStore,
+	ignoredExtensions: ReadonlySet<string> = hookIgnoredExtensionsFromEnvironment(),
 ): Promise<string> {
-	const filePaths = extractMutatedFilePaths(input);
+	const filePaths = extractMutatedFilePaths(input).filter(
+		(filePath) => !ignoredExtensions.has(extname(filePath).toLowerCase()),
+	);
 	if (filePaths.length === 0) return "";
 
 	const blocks: DiagnosticBlock[] = [];
@@ -80,6 +84,18 @@ export async function runLspPostToolUseHook(
 		},
 	};
 	return `${JSON.stringify(output)}\n`;
+}
+
+export function hookIgnoredExtensionsFromEnvironment(
+	raw: string | undefined = process.env[HOOK_IGNORED_EXTENSIONS_ENV],
+): ReadonlySet<string> {
+	if (raw === undefined) return new Set();
+	return new Set(
+		raw
+			.split(",")
+			.map((extension) => extension.trim().toLowerCase())
+			.filter((extension) => extension.startsWith(".") && extension.length > 1),
+	);
 }
 
 export function createFileMissingServerNoticeStore(

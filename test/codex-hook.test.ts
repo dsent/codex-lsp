@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
 	createFileMissingServerNoticeStore,
 	extractMutatedFilePaths,
+	hookIgnoredExtensionsFromEnvironment,
 	type MissingServerNoticeStore,
 	runLspPostToolUseHook,
 } from "../src/codex-hook.js";
@@ -155,6 +156,30 @@ describe("codex PostToolUse hook", () => {
 		);
 
 		expect(output).toBe("");
+	});
+
+	it("skips hook-only ignored extensions before starting a language server", async () => {
+		const checkedFilePaths: string[] = [];
+		const output = await runLspPostToolUseHook(
+			{
+				tool_name: "MultiEdit",
+				tool_input: { file_paths: ["src/Main.kt", "src/build.KTS", "src/keep.ts"] },
+				tool_response: { ok: true },
+			},
+			async (filePath) => {
+				checkedFilePaths.push(filePath);
+				return "No diagnostics found";
+			},
+			createMemoryNoticeStore(),
+			new Set([".kt", ".kts"]),
+		);
+
+		expect(output).toBe("");
+		expect(checkedFilePaths).toEqual(["src/keep.ts"]);
+	});
+
+	it("parses normalized hook-only ignored extensions from the environment value", () => {
+		expect(hookIgnoredExtensionsFromEnvironment(" .KT, .kts, invalid, , . ")).toEqual(new Set([".kt", ".kts"]));
 	});
 
 	it("surfaces a missing server only once per Codex session", async () => {

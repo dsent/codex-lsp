@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { closeSync, mkdirSync, openSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { extname, join } from "node:path";
 import { stdin as processStdin } from "node:process";
 import { executeLspDiagnostics } from "@code-yeongyu/lsp-tools-mcp/dist/tools.js";
 const MUTATION_TOOL_NAMES = new Set(["apply_patch", "write", "edit", "multiedit", "multi_edit"]);
@@ -9,13 +9,14 @@ const CLEAN_DIAGNOSTICS_TEXT = "No diagnostics found";
 const UNSUPPORTED_EXTENSION_TEXT = "No LSP server configured for extension:";
 const IGNORED_EXTENSION_TEXT = "LSP lookup ignored for extension:";
 const MISSING_SERVER_PATTERN = /^LSP server '([^'\n]+)' is configured but NOT INSTALLED\./;
+const HOOK_IGNORED_EXTENSIONS_ENV = "CODEX_LSP_HOOK_IGNORED_EXTENSIONS";
 const defaultMissingServerNoticeStore = createFileMissingServerNoticeStore();
 export async function runLspDiagnosticsText(filePath) {
     const result = await executeLspDiagnostics({ filePath, severity: "error" });
     return result.content.map((block) => block.text).join("\n");
 }
-export async function runLspPostToolUseHook(input, runDiagnostics = runLspDiagnosticsText, missingServerNotices = defaultMissingServerNoticeStore) {
-    const filePaths = extractMutatedFilePaths(input);
+export async function runLspPostToolUseHook(input, runDiagnostics = runLspDiagnosticsText, missingServerNotices = defaultMissingServerNoticeStore, ignoredExtensions = hookIgnoredExtensionsFromEnvironment()) {
+    const filePaths = extractMutatedFilePaths(input).filter((filePath) => !ignoredExtensions.has(extname(filePath).toLowerCase()));
     if (filePaths.length === 0)
         return "";
     const blocks = [];
@@ -43,6 +44,14 @@ export async function runLspPostToolUseHook(input, runDiagnostics = runLspDiagno
         },
     };
     return `${JSON.stringify(output)}\n`;
+}
+export function hookIgnoredExtensionsFromEnvironment(raw = process.env[HOOK_IGNORED_EXTENSIONS_ENV]) {
+    if (raw === undefined)
+        return new Set();
+    return new Set(raw
+        .split(",")
+        .map((extension) => extension.trim().toLowerCase())
+        .filter((extension) => extension.startsWith(".") && extension.length > 1));
 }
 export function createFileMissingServerNoticeStore(directory = defaultNoticeDirectory()) {
     return {

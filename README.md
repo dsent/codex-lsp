@@ -30,6 +30,10 @@ The LSP runtime lives in [`lsp-tools-mcp`](https://github.com/code-yeongyu/lsp-t
 | ignored extension | performs no server lookup and emits no hook output |
 | missing configured language server | surfaces install/config/ignore guidance once per missing server per Codex session; explicit MCP calls still report it |
 
+Set `CODEX_LSP_HOOK_IGNORED_EXTENSIONS` to a comma-separated list such as
+`.kt,.kts` to skip expensive or unsuitable languages only in automatic
+`PostToolUse` diagnostics. The MCP tools remain available for those extensions.
+
 Deletes are ignored because they cannot introduce new diagnostics.
 
 ## MCP Tools
