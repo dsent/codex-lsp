@@ -132,7 +132,7 @@ export const BUILTIN_SERVERS = {
         command: ["haskell-language-server-wrapper", "--lsp"],
         extensions: [".hs", ".lhs"],
     },
-    "kotlin-ls": { command: ["kotlin-lsp"], extensions: [".kt", ".kts"] },
+    "kotlin-ls": { command: ["kotlin-lsp", "--stdio"], extensions: [".kt", ".kts"] },
 };
 export const AUTO_INSTALLABLE_SERVERS = {
     typescript: ["npm", "install", "-g", "typescript-language-server", "typescript"],

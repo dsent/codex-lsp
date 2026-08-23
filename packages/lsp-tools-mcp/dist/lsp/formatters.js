@@ -7,7 +7,7 @@ const DIAGNOSTIC_SEVERITY_FILTERS = {
     hint: 4,
 };
 export function uriToPath(uri) {
-    return fileURLToPath(uri);
+    return new URL(uri).protocol === "file:" ? fileURLToPath(uri) : uri;
 }
 export function formatLocation(loc) {
     if ("targetUri" in loc) {
