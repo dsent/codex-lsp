@@ -136,7 +136,7 @@ export const BUILTIN_SERVERS: Record<string, Omit<LspServerConfig, "id">> = {
 		command: ["haskell-language-server-wrapper", "--lsp"],
 		extensions: [".hs", ".lhs"],
 	},
-	"kotlin-ls": { command: ["kotlin-lsp"], extensions: [".kt", ".kts"] },
+	"kotlin-ls": { command: ["kotlin-lsp", "--stdio"], extensions: [".kt", ".kts"] },
 };
 
 export const AUTO_INSTALLABLE_SERVERS: Record<string, string[]> = {
