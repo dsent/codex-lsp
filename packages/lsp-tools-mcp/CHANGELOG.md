@@ -17,6 +17,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Prefer source extensions with available configured servers when inferring the language for directory diagnostics.
 - Preserve non-file definition URIs such as Kotlin and Java archive locations.
 - Launch JetBrains Kotlin LSP with its mandatory `--stdio` transport flag.
 - Keep the stdio MCP transport alive until its host closes the connection while retaining idle cleanup of language-server children. Legacy idle-timeout options remain accepted as no-ops.

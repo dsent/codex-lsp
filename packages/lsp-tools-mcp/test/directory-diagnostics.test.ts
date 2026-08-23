@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { collectFilesWithExtension } from "../src/lsp/directory-diagnostics.js";
+import { inferExtensionFromDirectory } from "../src/lsp/infer-extension.js";
 
 const tempDirectories: string[] = [];
 
@@ -40,5 +41,45 @@ describe("collectFilesWithExtension", () => {
 		const files = collectFilesWithExtension(root, ".sh", 10);
 
 		expect(files.map((file) => file.slice(root.length + 1)).sort()).toEqual(["bash-script", "sh-script"]);
+	});
+});
+
+describe("inferExtensionFromDirectory", () => {
+	it("prefers an available server over a more common unsupported extension", () => {
+		const root = mkdtempSync(join(tmpdir(), "codex-lsp-directory-"));
+		tempDirectories.push(root);
+		writeFileSync(join(root, "main.go"), "package main\n");
+		for (let index = 0; index < 4; index += 1) {
+			writeFileSync(join(root, `README-${index}.md`), `# Generated ${index}\n`);
+		}
+
+		const extension = inferExtensionFromDirectory(root, (candidate) => (candidate === ".go" ? 2 : 0));
+
+		expect(extension).toBe(".go");
+	});
+
+	it("prefers an available server over a more common configured but missing server", () => {
+		const root = mkdtempSync(join(tmpdir(), "codex-lsp-directory-"));
+		tempDirectories.push(root);
+		writeFileSync(join(root, "main.go"), "package main\n");
+		for (let index = 0; index < 4; index += 1) {
+			writeFileSync(join(root, `Source-${index}.kt`), `val value${index} = ${index}\n`);
+		}
+
+		const extension = inferExtensionFromDirectory(root, (candidate) => {
+			if (candidate === ".go") return 2;
+			if (candidate === ".kt") return 1;
+			return 0;
+		});
+
+		expect(extension).toBe(".go");
+	});
+
+	it("returns null when no discovered extension has a configured server", () => {
+		const root = mkdtempSync(join(tmpdir(), "codex-lsp-directory-"));
+		tempDirectories.push(root);
+		writeFileSync(join(root, "README.md"), "# Documentation\n");
+
+		expect(inferExtensionFromDirectory(root, () => 0)).toBeNull();
 	});
 });
