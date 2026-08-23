@@ -4,7 +4,8 @@ import { classifyFileLanguage } from "./file-language.js";
 import { EXT_TO_LANG } from "./language-mappings.js";
 const SKIP_DIRECTORIES = new Set(["node_modules", ".git", "dist", "build", ".next", "out"]);
 const MAX_SCAN_ENTRIES = 500;
-export function inferExtensionFromDirectory(directory) {
+const knownExtensionPriority = (extension) => (extension in EXT_TO_LANG ? 1 : 0);
+export function inferExtensionFromDirectory(directory, extensionPriority = knownExtensionPriority) {
     const extensionCounts = new Map();
     let scanned = 0;
     function walk(dir) {
@@ -48,9 +49,14 @@ export function inferExtensionFromDirectory(directory) {
     if (extensionCounts.size === 0)
         return null;
     let maxExt = "";
+    let maxPriority = 0;
     let maxCount = 0;
     for (const [ext, count] of extensionCounts) {
-        if (count > maxCount) {
+        const priority = extensionPriority(ext);
+        if (priority <= 0)
+            continue;
+        if (priority > maxPriority || (priority === maxPriority && count > maxCount)) {
+            maxPriority = priority;
             maxCount = count;
             maxExt = ext;
         }

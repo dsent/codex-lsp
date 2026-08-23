@@ -5,7 +5,7 @@ import { aggregateDiagnosticsForDirectory } from "./lsp/directory-diagnostics.js
 import { filterDiagnosticsBySeverity, formatApplyResult, formatDiagnostic, formatDocumentSymbol, formatLocation, formatPrepareRenameResult, formatSymbolInfo, } from "./lsp/formatters.js";
 import { inferExtensionFromDirectory } from "./lsp/infer-extension.js";
 import { getLspManager } from "./lsp/manager.js";
-import { getAllServers } from "./lsp/server-resolution.js";
+import { findServerForExtension, getAllServers } from "./lsp/server-resolution.js";
 import { handleMissingDependencyError } from "./lsp/utils.js";
 import { applyWorkspaceEdit } from "./lsp/workspace-edit.js";
 const objectSchema = (properties, required = []) => ({
@@ -96,7 +96,14 @@ export async function executeLspDiagnostics(params, signal) {
     try {
         const absPath = resolve(filePath);
         if (isDirectoryPath(absPath)) {
-            const extension = inferExtensionFromDirectory(absPath);
+            const extension = inferExtensionFromDirectory(absPath, (candidate) => {
+                const result = findServerForExtension(candidate);
+                if (result.status === "found")
+                    return 2;
+                if (result.status === "not_installed")
+                    return 1;
+                return 0;
+            });
             if (!extension) {
                 const message = `No supported source files found in directory: ${absPath}`;
                 const details = {
