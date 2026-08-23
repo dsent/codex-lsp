@@ -24,7 +24,7 @@ const DIAGNOSTIC_SEVERITY_FILTERS = {
 } as const satisfies Readonly<Record<FilteredSeverity, number>>;
 
 export function uriToPath(uri: string): string {
-	return fileURLToPath(uri);
+	return new URL(uri).protocol === "file:" ? fileURLToPath(uri) : uri;
 }
 
 export function formatLocation(loc: Location | LocationLink): string {

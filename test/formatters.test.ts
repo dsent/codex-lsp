@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { filterDiagnosticsBySeverity } from "../src/lsp/formatters.js";
+import { filterDiagnosticsBySeverity, formatLocation, uriToPath } from "../src/lsp/formatters.js";
 import type { Diagnostic } from "../src/lsp/types.js";
 
 const range = {
@@ -39,5 +39,27 @@ describe("filterDiagnosticsBySeverity", () => {
 		expect(filterDiagnosticsBySeverity(diagnostics, "warning")).toEqual([diagnostics[1]]);
 		expect(filterDiagnosticsBySeverity(diagnostics, "information")).toEqual([diagnostics[2]]);
 		expect(filterDiagnosticsBySeverity(diagnostics, "hint")).toEqual([diagnostics[3]]);
+	});
+});
+
+describe("definition URI formatting", () => {
+	it("#given a file URI #when formatting its path #then converts it to a filesystem path", () => {
+		expect(uriToPath("file:///tmp/Example.kt")).toBe("/tmp/Example.kt");
+	});
+
+	it("#given a jar definition #when formatting its location #then preserves the non-file URI", () => {
+		// given
+		const location = {
+			uri: "jar:///opt/android-sdk/platforms/android-37.0/android.jar!/android/app/admin/DevicePolicyManager.class",
+			range: {
+				start: { line: 6, character: 14 },
+				end: { line: 6, character: 33 },
+			},
+		};
+
+		// when / then
+		expect(formatLocation(location)).toBe(
+			"jar:///opt/android-sdk/platforms/android-37.0/android.jar!/android/app/admin/DevicePolicyManager.class:7:14",
+		);
 	});
 });

@@ -24,4 +24,14 @@ describe("BUILTIN_SERVERS", () => {
 		expect(hint).toContain("rustup component remove rust-src");
 		expect(hint).toContain("rustup component add rust-src");
 	});
+
+	it("#given Kotlin LSP #when looking it up #then launches the server over stdio", () => {
+		// given
+		const kotlin = BUILTIN_SERVERS["kotlin-ls"];
+
+		// when / then
+		expect(kotlin).toBeDefined();
+		expect(kotlin?.command).toEqual(["kotlin-lsp", "--stdio"]);
+		expect(kotlin?.extensions).toEqual([".kt", ".kts"]);
+	});
 });
