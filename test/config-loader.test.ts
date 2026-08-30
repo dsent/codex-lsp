@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join, sep } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { getConfigPaths, getIgnoredExtensions, getMergedServers } from "../src/lsp/config-loader.js";
+import { getActiveAgent, getConfigPaths, getIgnoredExtensions, getMergedServers } from "../src/lsp/config-loader.js";
 
 const tempDirectories: string[] = [];
 
@@ -159,5 +159,73 @@ describe("config loader", () => {
 				process.env["LSP_TOOLS_MCP_USER_CONFIG"] = previousUser;
 			}
 		}
+	});
+});
+
+describe("per-agent scoping", () => {
+	function withAgentConfig<T>(config: unknown, agent: string | undefined, run: () => T): T {
+		const root = mkdtempSync(join(tmpdir(), "lsp-tools-agent-"));
+		tempDirectories.push(root);
+		const projectConfig = join(root, "project.json");
+		const userConfig = join(root, "user.json");
+		writeFileSync(projectConfig, JSON.stringify(config));
+		writeFileSync(userConfig, JSON.stringify({ lsp: {} }));
+
+		const previous = {
+			project: process.env["LSP_TOOLS_MCP_PROJECT_CONFIG"],
+			user: process.env["LSP_TOOLS_MCP_USER_CONFIG"],
+			agent: process.env["LSP_TOOLS_MCP_AGENT"],
+		};
+		process.env["LSP_TOOLS_MCP_PROJECT_CONFIG"] = projectConfig;
+		process.env["LSP_TOOLS_MCP_USER_CONFIG"] = userConfig;
+		if (agent === undefined) delete process.env["LSP_TOOLS_MCP_AGENT"];
+		else process.env["LSP_TOOLS_MCP_AGENT"] = agent;
+
+		try {
+			return run();
+		} finally {
+			for (const [key, value] of [
+				["LSP_TOOLS_MCP_PROJECT_CONFIG", previous.project],
+				["LSP_TOOLS_MCP_USER_CONFIG", previous.user],
+				["LSP_TOOLS_MCP_AGENT", previous.agent],
+			] as const) {
+				if (value === undefined) delete process.env[key];
+				else process.env[key] = value;
+			}
+		}
+	}
+
+	const config = {
+		lsp: { custom: { command: ["custom-lsp"], extensions: [".custom"] } },
+		agents: {
+			claude: { disabledServers: ["bash", "custom"], ignoredExtensions: [".go"] },
+		},
+	};
+
+	it("reports the active agent from the environment", () => {
+		expect(withAgentConfig(config, "claude", () => getActiveAgent())).toBe("claude");
+		expect(withAgentConfig(config, undefined, () => getActiveAgent())).toBeNull();
+	});
+
+	it("hides builtin and declared servers the active agent disables", () => {
+		const ids = withAgentConfig(config, "claude", () => getMergedServers().map((server) => server.id));
+
+		expect(ids).not.toContain("bash");
+		expect(ids).not.toContain("custom");
+	});
+
+	it("leaves servers alone for an agent with no section, and with no agent set", () => {
+		const other = withAgentConfig(config, "codex", () => getMergedServers().map((server) => server.id));
+		const none = withAgentConfig(config, undefined, () => getMergedServers().map((server) => server.id));
+
+		for (const ids of [other, none]) {
+			expect(ids).toContain("bash");
+			expect(ids).toContain("custom");
+		}
+	});
+
+	it("adds the active agent's ignored extensions to the shared set", () => {
+		expect(withAgentConfig(config, "claude", () => getIgnoredExtensions()).has(".go")).toBe(true);
+		expect(withAgentConfig(config, "codex", () => getIgnoredExtensions()).has(".go")).toBe(false);
 	});
 });

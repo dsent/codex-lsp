@@ -14,9 +14,15 @@ interface LspEntry {
 	initialization?: Record<string, unknown>;
 }
 
+interface AgentConfig {
+	disabledServers?: string[];
+	ignoredExtensions?: string[];
+}
+
 interface ConfigJson {
 	ignoredExtensions?: string[];
 	lsp?: Record<string, unknown>;
+	agents?: Record<string, unknown>;
 }
 
 type ConfigSource = "project" | "user";
@@ -53,6 +59,38 @@ function loadJsonFile(path: string): ConfigJson | null {
 	}
 }
 
+/**
+ * The harness this server is answering, from LSP_TOOLS_MCP_AGENT.
+ *
+ * `ignoredExtensions` and `disabled` are unioned across every loaded config, so
+ * one shared config cannot express two scopes: narrowing it for a harness with
+ * its own native integration narrows it for every other harness too. Naming the
+ * caller lets a single config carry a section per harness.
+ */
+export function getActiveAgent(): string | null {
+	const name = process.env["LSP_TOOLS_MCP_AGENT"]?.trim();
+	return name ? name : null;
+}
+
+function agentScoping(configs: Map<ConfigSource, ConfigJson>): {
+	disabledServers: Set<string>;
+	ignoredExtensions: Set<string>;
+} {
+	const disabledServers = new Set<string>();
+	const ignoredExtensions = new Set<string>();
+	const agent = getActiveAgent();
+	if (!agent) return { disabledServers, ignoredExtensions };
+
+	for (const config of configs.values()) {
+		const entry = parseAgentConfig(config.agents?.[agent]);
+		if (!entry) continue;
+		for (const id of entry.disabledServers ?? []) disabledServers.add(id);
+		for (const extension of entry.ignoredExtensions ?? []) ignoredExtensions.add(extension.toLowerCase());
+	}
+
+	return { disabledServers, ignoredExtensions };
+}
+
 export function loadAllConfigs(): Map<ConfigSource, ConfigJson> {
 	const paths = getConfigPaths();
 	const configs = new Map<ConfigSource, ConfigJson>();
@@ -69,7 +107,7 @@ export function loadAllConfigs(): Map<ConfigSource, ConfigJson> {
 export function getMergedServers(): ServerWithSource[] {
 	const configs = loadAllConfigs();
 	const servers: ServerWithSource[] = [];
-	const disabled = new Set<string>();
+	const disabled = new Set(agentScoping(configs).disabledServers);
 	const seen = new Set<string>();
 
 	const sources: ConfigSource[] = ["project", "user"];
@@ -87,6 +125,7 @@ export function getMergedServers(): ServerWithSource[] {
 			}
 
 			if (seen.has(id)) continue;
+			if (disabled.has(id)) continue;
 			if (!entry.command || !entry.extensions) continue;
 
 			const server: ServerWithSource = {
@@ -133,11 +172,15 @@ export function getMergedServers(): ServerWithSource[] {
 }
 
 export function getIgnoredExtensions(): Set<string> {
+	const configs = loadAllConfigs();
 	const ignored = new Set<string>();
-	for (const config of loadAllConfigs().values()) {
+	for (const config of configs.values()) {
 		for (const extension of config.ignoredExtensions ?? []) {
 			ignored.add(extension);
 		}
+	}
+	for (const extension of agentScoping(configs).ignoredExtensions) {
+		ignored.add(extension);
 	}
 	return ignored;
 }
@@ -146,9 +189,21 @@ function isConfigJson(value: unknown): value is ConfigJson {
 	if (!isRecord(value)) return false;
 	const lsp = value["lsp"];
 	const ignoredExtensions = value["ignoredExtensions"];
+	const agents = value["agents"];
 	return (
-		(lsp === undefined || isRecord(lsp)) && (ignoredExtensions === undefined || isExtensionArray(ignoredExtensions))
+		(lsp === undefined || isRecord(lsp)) &&
+		(ignoredExtensions === undefined || isExtensionArray(ignoredExtensions)) &&
+		(agents === undefined || isRecord(agents))
 	);
+}
+
+function parseAgentConfig(value: unknown): AgentConfig | null {
+	if (!isRecord(value)) return null;
+	const disabledServers = value["disabledServers"];
+	const ignoredExtensions = value["ignoredExtensions"];
+	if (disabledServers !== undefined && !isStringArray(disabledServers)) return null;
+	if (ignoredExtensions !== undefined && !isExtensionArray(ignoredExtensions)) return null;
+	return value as AgentConfig;
 }
 
 function parseLspEntry(value: unknown): LspEntry | null {

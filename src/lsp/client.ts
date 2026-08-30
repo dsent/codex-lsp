@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { LspClientConnection } from "./connection.js";
+import { LspDiagnosticsUnavailableError } from "./errors.js";
 import { classifyFileLanguage } from "./file-language.js";
 import type {
 	Diagnostic,
@@ -17,9 +18,15 @@ import type {
 } from "./types.js";
 
 const POST_OPEN_DELAY_MS = 1000;
-const POST_DIAGNOSTICS_WAIT_MS = 500;
+// How long to let a push-only server finish analysing before reporting what it
+// has. Sleeping a constant instead reports a large file as clean: ShellCheck on
+// a 60 KB script does not answer within a second, and an empty store is
+// indistinguishable from a file with no findings.
+const DIAGNOSTICS_PUBLISH_TIMEOUT_MS = 10_000;
 
 export class LspClient extends LspClientConnection {
+	/** Overridable so tests need not wait the production deadline. */
+	protected diagnosticsPublishTimeoutMs = DIAGNOSTICS_PUBLISH_TIMEOUT_MS;
 	private readonly openedFiles = new Set<string>();
 	private readonly documentVersions = new Map<string, number>();
 	private readonly lastSyncedText = new Map<string, string>();
@@ -37,6 +44,7 @@ export class LspClient extends LspClientConnection {
 		if (!this.openedFiles.has(absPath)) {
 			const { languageId } = classifyFileLanguage(absPath, text);
 			const version = 1;
+			this.markDiagnosticsStale(uri);
 
 			await this.sendNotification("textDocument/didOpen", {
 				textDocument: {
@@ -124,8 +132,8 @@ export class LspClient extends LspClientConnection {
 		const absPath = resolve(filePath);
 		const uri = pathToFileURL(absPath).href;
 		await this.openFile(absPath);
-		await new Promise((r) => setTimeout(r, POST_DIAGNOSTICS_WAIT_MS));
 
+		// A server that supports pull answers authoritatively and needs no waiting.
 		try {
 			const result = await this.sendRequest<{ items?: Diagnostic[] }>("textDocument/diagnostic", {
 				textDocument: { uri },
@@ -139,6 +147,14 @@ export class LspClient extends LspClientConnection {
 			}
 		}
 
+		// Push-only server: wait for it to answer for this document rather than
+		// sleeping a constant and reporting whatever happened to arrive.
+		// Throw only when the server has said nothing about this document at all.
+		// A previous answer still on file is worth returning; silence is not.
+		const published = await this.waitForDiagnostics(uri, this.diagnosticsPublishTimeoutMs);
+		if (!published && !this.hasStoredDiagnostics(uri)) {
+			throw new LspDiagnosticsUnavailableError(absPath, this.diagnosticsPublishTimeoutMs);
+		}
 		return { items: this.getStoredDiagnostics(uri) };
 	}
 

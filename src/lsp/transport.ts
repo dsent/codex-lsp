@@ -44,6 +44,11 @@ export class LspClientTransport {
 	protected readonly stderrBuffer: string[] = [];
 	protected processExited = false;
 	protected readonly diagnosticsStore = new Map<string, Diagnostic[]>();
+	// A server that pushes diagnostics answers whenever it is ready, so "the store
+	// is empty" and "the server has not answered yet" are the same observation
+	// unless the arrival is recorded separately.
+	protected readonly diagnosticsPublished = new Set<string>();
+	private readonly diagnosticsWaiters = new Map<string, Set<(published: boolean) => void>>();
 
 	constructor(
 		protected readonly root: string,
@@ -89,6 +94,12 @@ export class LspClientTransport {
 			const diagnosticsParams = parseDiagnosticsParams(params);
 			if (diagnosticsParams?.uri) {
 				this.diagnosticsStore.set(diagnosticsParams.uri, diagnosticsParams.diagnostics);
+				this.diagnosticsPublished.add(diagnosticsParams.uri);
+				const waiters = this.diagnosticsWaiters.get(diagnosticsParams.uri);
+				if (waiters) {
+					this.diagnosticsWaiters.delete(diagnosticsParams.uri);
+					for (const waiter of waiters) waiter(true);
+				}
 			}
 		});
 
@@ -265,10 +276,49 @@ export class LspClientTransport {
 
 		this.processExited = true;
 		this.diagnosticsStore.clear();
+		this.diagnosticsPublished.clear();
+		for (const waiters of this.diagnosticsWaiters.values()) {
+			for (const waiter of waiters) waiter(false);
+		}
+		this.diagnosticsWaiters.clear();
 	}
 
 	getStoredDiagnostics(uri: string): Diagnostic[] {
 		return this.diagnosticsStore.get(uri) ?? [];
+	}
+
+	hasStoredDiagnostics(uri: string): boolean {
+		return this.diagnosticsStore.has(uri);
+	}
+
+	/** Forget that the server has answered for this URI, before its content changes. */
+	markDiagnosticsStale(uri: string): void {
+		this.diagnosticsPublished.delete(uri);
+	}
+
+	/** Resolves true once the server publishes for this URI, false if the deadline passes first. */
+	waitForDiagnostics(uri: string, timeoutMs: number): Promise<boolean> {
+		if (this.diagnosticsPublished.has(uri)) return Promise.resolve(true);
+		if (this.processExited) return Promise.resolve(false);
+
+		return new Promise<boolean>((resolvePromise) => {
+			const waiters = this.diagnosticsWaiters.get(uri) ?? new Set<(published: boolean) => void>();
+			this.diagnosticsWaiters.set(uri, waiters);
+
+			let settled = false;
+			const settle = (published: boolean): void => {
+				if (settled) return;
+				settled = true;
+				clearTimeout(timer);
+				waiters.delete(settle);
+				if (waiters.size === 0) this.diagnosticsWaiters.delete(uri);
+				resolvePromise(published);
+			};
+
+			const timer = setTimeout(() => settle(false), timeoutMs);
+			timer.unref?.();
+			waiters.add(settle);
+		});
 	}
 }
 
