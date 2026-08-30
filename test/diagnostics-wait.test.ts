@@ -67,7 +67,7 @@ describe("diagnostics on a push-only server", () => {
 		const client = new PushOnlyClient(root, 30);
 		const file = scriptIn(root);
 
-		await expect(client.diagnostics(file)).rejects.toThrow(/not a clean result/);
+		await expect(client.diagnostics(file)).rejects.toThrow(/are not ready/);
 		await expect(client.diagnostics(file)).rejects.toThrow(file);
 	});
 
