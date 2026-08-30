@@ -18,7 +18,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
-- Wait for a push-only server to report on a document instead of sleeping a fixed interval, and fail with `diagnostics_unavailable` when it never answers. Previously a large file returned an empty list on first request, which is indistinguishable from a file with no findings.
+- Wait for a push-only server to report on a document instead of sleeping a fixed interval, and fail with `diagnostics_unavailable` when it never answers, telling the caller to retry rather than leaving an unactionable state. Previously a large file returned an empty list on first request, which is indistinguishable from a file with no findings.
 - Prefer source extensions with available configured servers when inferring the language for directory diagnostics.
 - Preserve non-file definition URIs such as Kotlin and Java archive locations.
 - Launch JetBrains Kotlin LSP with its mandatory `--stdio` transport flag.
