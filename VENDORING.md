@@ -23,33 +23,31 @@ Resolve by taking this fork's tree and running the pull above.
 
 ### Keeping the prefix pristine
 
-Everything under `packages/lsp-tools-mcp/` is byte-identical to upstream except
-for the tracked `dist/`, which cannot move because the package's own `exports`
-point at `./dist`. Divergence inside the prefix is what makes subtree pulls
-conflict, so it is kept to that one unavoidable case:
+Everything under `packages/lsp-tools-mcp/` is byte-identical to
+`dsent/lsp-tools-mcp`, including the tracked `dist/`. There is no divergence to
+resolve, which is what makes subtree pulls clean.
 
-- The prefix's `.gitignore` is **not** edited. `dist/` is tracked by force-adding
-  it once (`git add -f`); `.gitignore` governs only untracked files, so it stays
-  tracked afterwards regardless.
+- The prefix's `.gitignore` is **not** edited here. It no longer ignores `dist/`
+  upstream, so build output arrives with the pull and needs no force-add.
 - The committed `node_modules` entries live at the repository root, not beside
   the runtime.
 
 ## 2. Build output is committed
 
-`dist/` in both packages is tracked; upstream ignores it in the runtime package.
-A consumer pinning a submodule SHA gets working code at that SHA, which is the
-whole point of pinning. Building on the consumer side would also fail where it
-is most needed: agent sandboxes commonly run without network access, so
-`npm ci` is not available at the moment the server is launched.
+`dist/` is tracked in both packages. A consumer pinning a SHA gets working code
+at that SHA, which is the whole point of pinning. Building on the consumer side
+would also fail where it is most needed: agent sandboxes commonly run without
+network access, so `npm ci` is not available at the moment the server is
+launched.
 
-`dist/` is stale after any subtree pull, and nothing flags that — upstream does
-not track these paths, so a pull cannot conflict on them. Always rebuild and
-commit after pulling.
+The runtime's `dist/` is owned upstream and arrives with each subtree pull, so
+it is never stale here and is never rebuilt here. `dsent/lsp-tools-mcp` fails
+its own `npm run check` when the committed output does not match a fresh build.
 
-Rebuild after any source change or subtree pull, and commit the result:
+This repository's own `dist/` still needs rebuilding after any change to its
+`src/`:
 
 ```bash
-(cd packages/lsp-tools-mcp && npm ci && npm run build)
 npm install && npm run build
 ```
 

@@ -1,22 +1,54 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { isAbsolute, join } from "node:path";
+import { dirname, isAbsolute, join } from "node:path";
 import { BUILTIN_SERVERS } from "./server-definitions.js";
+const CONFIG_FILENAME = "lsp-client.json";
+// The same boundaries workspace-root resolution uses. Config discovery must not
+// escape the project: an unnoticed lsp-client.json in a parent directory would
+// otherwise govern every repository beneath it.
+const PROJECT_BOUNDARIES = [".lsp-root", ".git", "package.json", "pyproject.toml", "Cargo.toml", "go.mod", "pom.xml"];
+function isProjectBoundary(directory) {
+    return PROJECT_BOUNDARIES.some((marker) => existsSync(join(directory, marker)));
+}
+/**
+ * Nearest `lsp-client.json` at or above the working directory, stopping at the
+ * project boundary.
+ *
+ * Config is resolved before any request names a file, so the working directory
+ * is the only anchor available. MCP does not promise one, which is why a
+ * registration that cares should pass LSP_TOOLS_MCP_PROJECT_CONFIG explicitly.
+ */
+export function discoverProjectConfig(cwd) {
+    let directory = cwd;
+    for (;;) {
+        const candidate = join(directory, CONFIG_FILENAME);
+        if (existsSync(candidate))
+            return candidate;
+        if (isProjectBoundary(directory))
+            break;
+        const parent = dirname(directory);
+        if (parent === directory)
+            break;
+        directory = parent;
+    }
+    return join(cwd, CONFIG_FILENAME);
+}
 export function getConfigPaths() {
     const cwd = process.cwd();
     const projectOverride = process.env["LSP_TOOLS_MCP_PROJECT_CONFIG"];
     const userOverride = process.env["LSP_TOOLS_MCP_USER_CONFIG"];
+    const configHome = process.env["XDG_CONFIG_HOME"] || join(homedir(), ".config");
     return {
         project: projectOverride
             ? isAbsolute(projectOverride)
                 ? projectOverride
                 : join(cwd, projectOverride)
-            : join(cwd, ".codex", "lsp-client.json"),
+            : discoverProjectConfig(cwd),
         user: userOverride
             ? isAbsolute(userOverride)
                 ? userOverride
                 : join(homedir(), userOverride)
-            : join(homedir(), ".codex", "lsp-client.json"),
+            : join(configHome, "lsp-tools-mcp", CONFIG_FILENAME),
     };
 }
 function loadJsonFile(path) {
@@ -30,30 +62,50 @@ function loadJsonFile(path) {
         return null;
     }
 }
-function envServerList(name) {
-    const raw = process.env[name];
-    if (raw === undefined)
-        return null;
-    const ids = raw
+function parseList(raw) {
+    return raw
         .split(",")
-        .map((id) => id.trim())
-        .filter((id) => id.length > 0);
-    return new Set(ids);
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0);
 }
 /**
- * Server scoping for this process, declared by whoever registered it.
+ * The registration's value if it set one, otherwise the shared configuration's.
+ *
+ * The environment replaces rather than merges, so a harness can narrow what the
+ * project declares and not only widen it. An empty value is a deliberate clear:
+ * it means "no constraint from me", never "an empty allowlist", which would
+ * leave the server resolving nothing while looking healthy.
+ */
+function resolveList(envName, fromConfigs) {
+    const raw = process.env[envName];
+    return raw === undefined ? fromConfigs : parseList(raw);
+}
+function configLists(configs) {
+    const enabled = [];
+    const disabled = [];
+    const ignored = [];
+    for (const config of configs.values()) {
+        enabled.push(...(config.enabledServers ?? []));
+        disabled.push(...(config.disabledServers ?? []));
+        ignored.push(...(config.ignoredExtensions ?? []));
+    }
+    return { enabled, disabled, ignored };
+}
+/**
+ * Which servers this process may resolve.
  *
  * A harness that already integrates a language natively should not be offered a
- * second, less integrated path to it. The registration that starts this server
- * is harness-specific by construction, so it is where the scope belongs.
- * `LSP_TOOLS_MCP_ENABLED_SERVERS` is an allowlist and the durable form: a
- * denylist cannot name a server that does not exist yet, so it silently admits
- * every builtin added later.
+ * second, less integrated path to it. `LSP_TOOLS_MCP_ENABLED_SERVERS` is an
+ * allowlist and the durable form: a denylist cannot name a server that does not
+ * exist yet, so it silently admits every builtin added in a later release.
  */
-export function serverScoping() {
+export function serverScoping(configs = loadAllConfigs()) {
+    const lists = configLists(configs);
+    const enabled = resolveList("LSP_TOOLS_MCP_ENABLED_SERVERS", lists.enabled);
+    const disabled = resolveList("LSP_TOOLS_MCP_DISABLED_SERVERS", lists.disabled);
     return {
-        enabledServers: envServerList("LSP_TOOLS_MCP_ENABLED_SERVERS"),
-        disabledServers: new Set(envServerList("LSP_TOOLS_MCP_DISABLED_SERVERS") ?? []),
+        enabledServers: enabled.length > 0 ? new Set(enabled) : null,
+        disabledServers: new Set(disabled),
     };
 }
 export function loadAllConfigs() {
@@ -70,7 +122,7 @@ export function loadAllConfigs() {
 export function getMergedServers() {
     const configs = loadAllConfigs();
     const servers = [];
-    const scoping = serverScoping();
+    const scoping = serverScoping(configs);
     const allowed = scoping.enabledServers;
     const isAllowed = (id) => (allowed ? allowed.has(id) : !scoping.disabledServers.has(id));
     const disabled = new Set();
@@ -162,20 +214,19 @@ export function getScopingProblems() {
 }
 export function getIgnoredExtensions() {
     const configs = loadAllConfigs();
-    const ignored = new Set();
-    for (const config of configs.values()) {
-        for (const extension of config.ignoredExtensions ?? []) {
-            ignored.add(extension);
-        }
-    }
-    return ignored;
+    return new Set(resolveList("LSP_TOOLS_MCP_IGNORED_EXTENSIONS", configLists(configs).ignored));
 }
 function isConfigJson(value) {
     if (!isRecord(value))
         return false;
     const lsp = value["lsp"];
     const ignoredExtensions = value["ignoredExtensions"];
-    return ((lsp === undefined || isRecord(lsp)) && (ignoredExtensions === undefined || isExtensionArray(ignoredExtensions)));
+    const enabledServers = value["enabledServers"];
+    const disabledServers = value["disabledServers"];
+    return ((lsp === undefined || isRecord(lsp)) &&
+        (ignoredExtensions === undefined || isExtensionArray(ignoredExtensions)) &&
+        (enabledServers === undefined || isStringArray(enabledServers)) &&
+        (disabledServers === undefined || isStringArray(disabledServers)));
 }
 function parseLspEntry(value) {
     return isLspEntry(value) ? value : null;
