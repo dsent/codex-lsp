@@ -224,6 +224,43 @@ describe("per-agent scoping", () => {
 		}
 	});
 
+	it("keeps only the allowlisted servers when enabledServers is present", () => {
+		const allowlist = {
+			lsp: { custom: { command: ["custom-lsp"], extensions: [".custom"] } },
+			agents: { claude: { enabledServers: ["bash", "custom"] } },
+		};
+
+		const ids = withAgentConfig(allowlist, "claude", () => getMergedServers().map((server) => server.id));
+
+		expect(ids).toContain("bash");
+		expect(ids).toContain("custom");
+		expect(ids).not.toContain("gopls");
+		expect(ids).not.toContain("typescript");
+	});
+
+	it("lets the allowlist win over a denylist naming the same server", () => {
+		const both = {
+			agents: { claude: { enabledServers: ["bash"], disabledServers: ["bash"] } },
+		};
+
+		const ids = withAgentConfig(both, "claude", () => getMergedServers().map((server) => server.id));
+
+		expect(ids).toEqual(["bash"]);
+	});
+
+	it("admits a newly added builtin under a denylist but not under an allowlist", () => {
+		// A denylist cannot name a server that does not exist yet, which is why
+		// the allowlist is the durable way to scope a harness.
+		const denied = { agents: { claude: { disabledServers: ["bash"] } } };
+		const allowed = { agents: { claude: { enabledServers: ["bash"] } } };
+
+		const underDenylist = withAgentConfig(denied, "claude", () => getMergedServers().map((s) => s.id));
+		const underAllowlist = withAgentConfig(allowed, "claude", () => getMergedServers().map((s) => s.id));
+
+		expect(underDenylist).toContain("gopls");
+		expect(underAllowlist).toEqual(["bash"]);
+	});
+
 	it("adds the active agent's ignored extensions to the shared set", () => {
 		expect(withAgentConfig(config, "claude", () => getIgnoredExtensions()).has(".go")).toBe(true);
 		expect(withAgentConfig(config, "codex", () => getIgnoredExtensions()).has(".go")).toBe(false);
