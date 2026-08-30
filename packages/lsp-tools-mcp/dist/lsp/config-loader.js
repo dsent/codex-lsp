@@ -43,21 +43,27 @@ export function getActiveAgent() {
     return name ? name : null;
 }
 function agentScoping(configs) {
+    let enabledServers = null;
     const disabledServers = new Set();
     const ignoredExtensions = new Set();
     const agent = getActiveAgent();
     if (!agent)
-        return { disabledServers, ignoredExtensions };
+        return { enabledServers, disabledServers, ignoredExtensions };
     for (const config of configs.values()) {
         const entry = parseAgentConfig(config.agents?.[agent]);
         if (!entry)
             continue;
+        if (entry.enabledServers) {
+            enabledServers ??= new Set();
+            for (const id of entry.enabledServers)
+                enabledServers.add(id);
+        }
         for (const id of entry.disabledServers ?? [])
             disabledServers.add(id);
         for (const extension of entry.ignoredExtensions ?? [])
             ignoredExtensions.add(extension.toLowerCase());
     }
-    return { disabledServers, ignoredExtensions };
+    return { enabledServers, disabledServers, ignoredExtensions };
 }
 export function loadAllConfigs() {
     const paths = getConfigPaths();
@@ -73,7 +79,12 @@ export function loadAllConfigs() {
 export function getMergedServers() {
     const configs = loadAllConfigs();
     const servers = [];
-    const disabled = new Set(agentScoping(configs).disabledServers);
+    const scoping = agentScoping(configs);
+    // An allowlist states what the agent wants and stays correct when new builtin
+    // servers are added upstream; a denylist silently admits every future one.
+    const allowed = scoping.enabledServers;
+    const isAllowed = (id) => (allowed ? allowed.has(id) : !scoping.disabledServers.has(id));
+    const disabled = new Set();
     const seen = new Set();
     const sources = ["project", "user"];
     for (const source of sources) {
@@ -90,7 +101,7 @@ export function getMergedServers() {
             }
             if (seen.has(id))
                 continue;
-            if (disabled.has(id))
+            if (!isAllowed(id))
                 continue;
             if (!entry.command || !entry.extensions)
                 continue;
@@ -112,7 +123,7 @@ export function getMergedServers() {
         }
     }
     for (const [id, config] of Object.entries(BUILTIN_SERVERS)) {
-        if (disabled.has(id) || seen.has(id))
+        if (disabled.has(id) || seen.has(id) || !isAllowed(id))
             continue;
         servers.push({
             id,
@@ -160,8 +171,11 @@ function isConfigJson(value) {
 function parseAgentConfig(value) {
     if (!isRecord(value))
         return null;
+    const enabledServers = value["enabledServers"];
     const disabledServers = value["disabledServers"];
     const ignoredExtensions = value["ignoredExtensions"];
+    if (enabledServers !== undefined && !isStringArray(enabledServers))
+        return null;
     if (disabledServers !== undefined && !isStringArray(disabledServers))
         return null;
     if (ignoredExtensions !== undefined && !isExtensionArray(ignoredExtensions))
