@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 
 import { isDirectoryPath, type WithLspClientOptions, withLspClient } from "./lsp/client-wrapper.js";
+import { getScopingProblems } from "./lsp/config-loader.js";
 import { DEFAULT_MAX_DIAGNOSTICS, DEFAULT_MAX_REFERENCES, DEFAULT_MAX_SYMBOLS } from "./lsp/constants.js";
 import { aggregateDiagnosticsForDirectory } from "./lsp/directory-diagnostics.js";
 import { LspDiagnosticsUnavailableError } from "./lsp/errors.js";
@@ -203,6 +204,7 @@ async function executeLspStatus(): Promise<ToolExecutionResult> {
 		const state = snapshot.alive ? (snapshot.isInitializing ? "initializing" : "alive") : "dead";
 		return `- ${snapshot.serverId}: ${state}; root=${snapshot.root}; refs=${snapshot.refCount}`;
 	});
+	const problems = getScopingProblems();
 	const lines = [
 		`Configured LSP servers: ${servers.length}`,
 		`Installed LSP servers: ${installed.length}`,
@@ -211,8 +213,9 @@ async function executeLspStatus(): Promise<ToolExecutionResult> {
 		"",
 		`Active LSP clients: ${snapshots.length}`,
 		...activeLines,
+		...(problems.length > 0 ? ["", "Scoping problems:", ...problems.map((problem) => `- ${problem}`)] : []),
 	];
-	return text(lines.join("\n"), { servers, snapshots });
+	return text(lines.join("\n"), { servers, snapshots, scopingProblems: problems });
 }
 
 export async function executeLspDiagnostics(
