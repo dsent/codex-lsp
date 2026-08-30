@@ -54,22 +54,28 @@ When an MCP host registers this server under the name `lsp` (the default in both
 
 ## Configuration
 
-Default config paths (matches codex-lsp's historical layout):
+Default config paths, harness-neutral:
 
-- Project: `.codex/lsp-client.json`
-- User: `~/.codex/lsp-client.json`
+- Project: the nearest `lsp-client.json` at or above the working directory, stopping at the project boundary (`.lsp-root`, `.git`, `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `pom.xml`). A config above the boundary never governs the project below it.
+- User: `${XDG_CONFIG_HOME:-~/.config}/lsp-tools-mcp/lsp-client.json`
 
-Project and user configuration can suppress automatic lookup for selected extensions before any server command is resolved:
+Config is resolved before any request names a file, so the working directory is the only anchor available — and MCP promises nothing about it. A registration that cares should pass `LSP_TOOLS_MCP_PROJECT_CONFIG` explicitly.
+
+The shared configuration declares what a project wants, whichever harness is asking:
 
 ```json
 {
-  "ignoredExtensions": [".json", ".jsonc"]
+  "ignoredExtensions": [".json", ".jsonc"],
+  "enabledServers": ["bash", "typescript"],
+  "disabledServers": []
 }
 ```
 
+`ignoredExtensions` suppresses lookup for those extensions before any server command is resolved. Note that shebang-detected shell scripts classify as `.sh`, so ignoring `.sh` also covers extensionless scripts — the extension here means "what this file is", not "how it is named".
+
 Extensionless files with `bash` or `sh` shebangs are routed as `.sh` with the `shellscript` language ID. Direct interpreter paths, `env`, and `env -S` shebangs are supported.
 
-### Scoping servers per harness
+### Scoping per harness
 
 A harness that already integrates a language natively should not be offered a second, less integrated path to it. The registration that starts this server is harness-specific by construction, so it carries its own scope:
 
@@ -78,13 +84,16 @@ A harness that already integrates a language natively should not be offered a se
 ```
 
 - `LSP_TOOLS_MCP_ENABLED_SERVERS` — allowlist. Only these servers resolve, builtin or declared. **Prefer this.**
-- `LSP_TOOLS_MCP_DISABLED_SERVERS` — denylist, applied when no allowlist is given.
+- `LSP_TOOLS_MCP_DISABLED_SERVERS` — denylist, applied when no allowlist is in force.
+- `LSP_TOOLS_MCP_IGNORED_EXTENSIONS` — as `ignoredExtensions` above.
 
-Both take a comma-separated list and ignore surrounding whitespace. An allowlist wins when both are set.
+Each takes a comma-separated list and ignores surrounding whitespace.
 
-Prefer the allowlist: a denylist cannot name a server that does not exist yet, so a config written today silently admits every builtin added in a later release. An allowlist states the intent once and stays correct across upstream additions.
+**The environment replaces the shared configuration, it does not merge with it**, so a harness can narrow what the project declares and not only widen it. **An empty value clears the constraint** — it means "no restriction from me", never "an empty allowlist", which would leave the server resolving nothing while looking healthy.
 
-Unscoped, every server resolves as before. Excluded servers are hidden from `status` and never started. An entry naming no known server is reported under `Scoping problems` in `status`, because a misspelled id would otherwise resolve nothing and look exactly like a language with no findings.
+Prefer the allowlist: a denylist cannot name a server that does not exist yet, so a config written today silently admits every builtin added in a later release. An allowlist states the intent once and stays correct across upstream additions. An allowlist wins over a denylist.
+
+Unscoped, every server resolves. Excluded servers are hidden from `status` and never started. An entry naming no known server is reported under `Scoping problems` in `status`, because a misspelled id would otherwise resolve nothing and look exactly like a language with no findings.
 
 ### Workspace roots
 

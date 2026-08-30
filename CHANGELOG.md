@@ -9,9 +9,13 @@ All notable changes to this project are documented in this file.
 - Top-level `ignoredExtensions` configuration that short-circuits server command lookup.
 - Extensionless `bash` and `sh` shebang routing through the `.sh` language server.
 - `.lsp-root` as an explicit workspace boundary for source trees without a suitable project marker.
-- Per-harness server scoping through `LSP_TOOLS_MCP_ENABLED_SERVERS` and `LSP_TOOLS_MCP_DISABLED_SERVERS`, declared by the registration that starts the server. The allowlist takes precedence and is the durable form, since a denylist cannot name a builtin added in a later release. `status` reports entries naming no known server.
+- Per-harness scoping through `LSP_TOOLS_MCP_ENABLED_SERVERS`, `LSP_TOOLS_MCP_DISABLED_SERVERS`, and `LSP_TOOLS_MCP_IGNORED_EXTENSIONS`, declared by the registration that starts the server. The environment replaces the shared configuration rather than merging, and an empty value clears the constraint. The allowlist takes precedence and is the durable form, since a denylist cannot name a builtin added in a later release. `status` reports entries naming no known server.
+- Project-level `enabledServers` and `disabledServers` beside `ignoredExtensions`, so a shared config states what the project wants and each harness narrows it.
+- Tracked `dist/`, so a consumer pinning a revision gets runnable code with no install or build step. `npm run check` fails if the committed output does not match a fresh build.
 
 ### Changed
+
+- Default config paths are harness-neutral: the nearest `lsp-client.json` at or above the working directory, bounded by the project markers, and `${XDG_CONFIG_HOME:-~/.config}/lsp-tools-mcp/lsp-client.json` for the user. Previously `.codex/lsp-client.json`, which named whichever harness had adopted the package most recently.
 
 - Missing-server guidance now offers configuration and extension-suppression actions.
 - Development lockfile resolves patched `nanoid` 3.3.18.
