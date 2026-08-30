@@ -3,7 +3,12 @@ import { tmpdir } from "node:os";
 import { join, sep } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { getActiveAgent, getConfigPaths, getIgnoredExtensions, getMergedServers } from "../src/lsp/config-loader.js";
+import {
+	getConfigPaths,
+	getIgnoredExtensions,
+	getMergedServers,
+	getScopingProblems,
+} from "../src/lsp/config-loader.js";
 
 const tempDirectories: string[] = [];
 
@@ -162,107 +167,102 @@ describe("config loader", () => {
 	});
 });
 
-describe("per-agent scoping", () => {
-	function withAgentConfig<T>(config: unknown, agent: string | undefined, run: () => T): T {
-		const root = mkdtempSync(join(tmpdir(), "lsp-tools-agent-"));
+describe("server scoping from the registration environment", () => {
+	function withScope<T>(vars: Record<string, string | undefined>, config: unknown, run: () => T): T {
+		const root = mkdtempSync(join(tmpdir(), "lsp-tools-scope-"));
 		tempDirectories.push(root);
 		const projectConfig = join(root, "project.json");
 		const userConfig = join(root, "user.json");
 		writeFileSync(projectConfig, JSON.stringify(config));
 		writeFileSync(userConfig, JSON.stringify({ lsp: {} }));
 
-		const previous = {
-			project: process.env["LSP_TOOLS_MCP_PROJECT_CONFIG"],
-			user: process.env["LSP_TOOLS_MCP_USER_CONFIG"],
-			agent: process.env["LSP_TOOLS_MCP_AGENT"],
+		const all: Record<string, string | undefined> = {
+			LSP_TOOLS_MCP_PROJECT_CONFIG: projectConfig,
+			LSP_TOOLS_MCP_USER_CONFIG: userConfig,
+			LSP_TOOLS_MCP_ENABLED_SERVERS: undefined,
+			LSP_TOOLS_MCP_DISABLED_SERVERS: undefined,
+			...vars,
 		};
-		process.env["LSP_TOOLS_MCP_PROJECT_CONFIG"] = projectConfig;
-		process.env["LSP_TOOLS_MCP_USER_CONFIG"] = userConfig;
-		if (agent === undefined) delete process.env["LSP_TOOLS_MCP_AGENT"];
-		else process.env["LSP_TOOLS_MCP_AGENT"] = agent;
+		const previous = new Map(Object.keys(all).map((key) => [key, process.env[key]]));
+		for (const [key, value] of Object.entries(all)) {
+			if (value === undefined) delete process.env[key];
+			else process.env[key] = value;
+		}
 
 		try {
 			return run();
 		} finally {
-			for (const [key, value] of [
-				["LSP_TOOLS_MCP_PROJECT_CONFIG", previous.project],
-				["LSP_TOOLS_MCP_USER_CONFIG", previous.user],
-				["LSP_TOOLS_MCP_AGENT", previous.agent],
-			] as const) {
+			for (const [key, value] of previous) {
 				if (value === undefined) delete process.env[key];
 				else process.env[key] = value;
 			}
 		}
 	}
 
-	const config = {
-		lsp: { custom: { command: ["custom-lsp"], extensions: [".custom"] } },
-		agents: {
-			claude: { disabledServers: ["bash", "custom"], ignoredExtensions: [".go"] },
-		},
-	};
+	const declared = { lsp: { custom: { command: ["custom-lsp"], extensions: [".custom"] } } };
+	const ids = () => getMergedServers().map((server) => server.id);
 
-	it("reports the active agent from the environment", () => {
-		expect(withAgentConfig(config, "claude", () => getActiveAgent())).toBe("claude");
-		expect(withAgentConfig(config, undefined, () => getActiveAgent())).toBeNull();
+	it("resolves every server when nothing is scoped", () => {
+		const resolved = withScope({}, declared, ids);
+
+		expect(resolved).toContain("bash");
+		expect(resolved).toContain("gopls");
+		expect(resolved).toContain("custom");
 	});
 
-	it("hides builtin and declared servers the active agent disables", () => {
-		const ids = withAgentConfig(config, "claude", () => getMergedServers().map((server) => server.id));
+	it("keeps only the allowlisted servers, builtin or declared", () => {
+		const resolved = withScope({ LSP_TOOLS_MCP_ENABLED_SERVERS: "bash,custom" }, declared, ids);
 
-		expect(ids).not.toContain("bash");
-		expect(ids).not.toContain("custom");
+		expect(resolved).toEqual(expect.arrayContaining(["bash", "custom"]));
+		expect(resolved).not.toContain("gopls");
+		expect(resolved).not.toContain("typescript");
 	});
 
-	it("leaves servers alone for an agent with no section, and with no agent set", () => {
-		const other = withAgentConfig(config, "codex", () => getMergedServers().map((server) => server.id));
-		const none = withAgentConfig(config, undefined, () => getMergedServers().map((server) => server.id));
+	it("tolerates spacing and empty entries in the list", () => {
+		const resolved = withScope({ LSP_TOOLS_MCP_ENABLED_SERVERS: " bash , , custom " }, declared, ids);
 
-		for (const ids of [other, none]) {
-			expect(ids).toContain("bash");
-			expect(ids).toContain("custom");
-		}
+		expect(resolved).toEqual(expect.arrayContaining(["bash", "custom"]));
+		expect(resolved).not.toContain("gopls");
 	});
 
-	it("keeps only the allowlisted servers when enabledServers is present", () => {
-		const allowlist = {
-			lsp: { custom: { command: ["custom-lsp"], extensions: [".custom"] } },
-			agents: { claude: { enabledServers: ["bash", "custom"] } },
-		};
+	it("removes named servers when only a denylist is given", () => {
+		const resolved = withScope({ LSP_TOOLS_MCP_DISABLED_SERVERS: "bash,gopls" }, declared, ids);
 
-		const ids = withAgentConfig(allowlist, "claude", () => getMergedServers().map((server) => server.id));
-
-		expect(ids).toContain("bash");
-		expect(ids).toContain("custom");
-		expect(ids).not.toContain("gopls");
-		expect(ids).not.toContain("typescript");
+		expect(resolved).not.toContain("bash");
+		expect(resolved).not.toContain("gopls");
+		expect(resolved).toContain("custom");
 	});
 
-	it("lets the allowlist win over a denylist naming the same server", () => {
-		const both = {
-			agents: { claude: { enabledServers: ["bash"], disabledServers: ["bash"] } },
-		};
+	it("lets the allowlist win when both are given", () => {
+		const resolved = withScope(
+			{ LSP_TOOLS_MCP_ENABLED_SERVERS: "bash", LSP_TOOLS_MCP_DISABLED_SERVERS: "bash" },
+			declared,
+			ids,
+		);
 
-		const ids = withAgentConfig(both, "claude", () => getMergedServers().map((server) => server.id));
-
-		expect(ids).toEqual(["bash"]);
+		expect(resolved).toEqual(["bash"]);
 	});
 
 	it("admits a newly added builtin under a denylist but not under an allowlist", () => {
 		// A denylist cannot name a server that does not exist yet, which is why
 		// the allowlist is the durable way to scope a harness.
-		const denied = { agents: { claude: { disabledServers: ["bash"] } } };
-		const allowed = { agents: { claude: { enabledServers: ["bash"] } } };
-
-		const underDenylist = withAgentConfig(denied, "claude", () => getMergedServers().map((s) => s.id));
-		const underAllowlist = withAgentConfig(allowed, "claude", () => getMergedServers().map((s) => s.id));
+		const underDenylist = withScope({ LSP_TOOLS_MCP_DISABLED_SERVERS: "bash" }, declared, ids);
+		const underAllowlist = withScope({ LSP_TOOLS_MCP_ENABLED_SERVERS: "bash" }, declared, ids);
 
 		expect(underDenylist).toContain("gopls");
 		expect(underAllowlist).toEqual(["bash"]);
 	});
 
-	it("adds the active agent's ignored extensions to the shared set", () => {
-		expect(withAgentConfig(config, "claude", () => getIgnoredExtensions()).has(".go")).toBe(true);
-		expect(withAgentConfig(config, "codex", () => getIgnoredExtensions()).has(".go")).toBe(false);
+	it("reports a scoping entry that names no known server", () => {
+		const problems = withScope({ LSP_TOOLS_MCP_ENABLED_SERVERS: "bahs" }, declared, getScopingProblems);
+
+		expect(problems).toHaveLength(1);
+		expect(problems[0]).toContain("bahs");
+	});
+
+	it("accepts a declared server as known, and reports nothing when all ids resolve", () => {
+		const problems = withScope({ LSP_TOOLS_MCP_ENABLED_SERVERS: "bash,custom" }, declared, getScopingProblems);
+
+		expect(problems).toEqual([]);
 	});
 });

@@ -69,24 +69,22 @@ Project and user configuration can suppress automatic lookup for selected extens
 
 Extensionless files with `bash` or `sh` shebangs are routed as `.sh` with the `shellscript` language ID. Direct interpreter paths, `env`, and `env -S` shebangs are supported.
 
-### Per-agent scoping
+### Scoping servers per harness
 
-`ignoredExtensions` and per-server `disabled` are unioned across every loaded config, so one shared config cannot express two scopes: narrowing it for a harness that already has native language support narrows it for every other harness too. Name the calling harness in `LSP_TOOLS_MCP_AGENT` and give it a section:
+A harness that already integrates a language natively should not be offered a second, less integrated path to it. The registration that starts this server is harness-specific by construction, so it carries its own scope:
 
-```json
-{
-  "agents": {
-    "claude": {
-      "enabledServers": ["bash"],
-      "ignoredExtensions": [".go", ".rs"]
-    }
-  }
-}
+```jsonc
+"env": { "LSP_TOOLS_MCP_ENABLED_SERVERS": "bash" }
 ```
 
-`enabledServers` is an allowlist: only those servers resolve for that harness, builtin or declared. Prefer it. `disabledServers` is also accepted and names servers to remove, but it cannot name a server that does not exist yet, so a config written today silently admits every builtin added later. An allowlist states the intent once and stays correct across upstream additions. When both appear, `enabledServers` wins.
+- `LSP_TOOLS_MCP_ENABLED_SERVERS` — allowlist. Only these servers resolve, builtin or declared. **Prefer this.**
+- `LSP_TOOLS_MCP_DISABLED_SERVERS` — denylist, applied when no allowlist is given.
 
-A harness with no section, or no `LSP_TOOLS_MCP_AGENT` set, sees every server as before. Excluded servers are hidden from `status` and never started, so the harness is not offered a second, less integrated path to a language it already covers.
+Both take a comma-separated list and ignore surrounding whitespace. An allowlist wins when both are set.
+
+Prefer the allowlist: a denylist cannot name a server that does not exist yet, so a config written today silently admits every builtin added in a later release. An allowlist states the intent once and stays correct across upstream additions.
+
+Unscoped, every server resolves as before. Excluded servers are hidden from `status` and never started. An entry naming no known server is reported under `Scoping problems` in `status`, because a misspelled id would otherwise resolve nothing and look exactly like a language with no findings.
 
 ### Workspace roots
 
@@ -98,7 +96,7 @@ Path overrides via environment variables:
 
 - `LSP_TOOLS_MCP_PROJECT_CONFIG`
 - `LSP_TOOLS_MCP_USER_CONFIG`
-- `LSP_TOOLS_MCP_AGENT` — names the calling harness, selecting its section under `agents`
+- `LSP_TOOLS_MCP_ENABLED_SERVERS`, `LSP_TOOLS_MCP_DISABLED_SERVERS` — scope which servers this process resolves
 
 The MCP process remains active until its host closes the stdio connection. Idle language-server child processes are cleaned up independently.
 
