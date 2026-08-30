@@ -77,14 +77,16 @@ Extensionless files with `bash` or `sh` shebangs are routed as `.sh` with the `s
 {
   "agents": {
     "claude": {
-      "disabledServers": ["gopls", "rust", "typescript", "biome", "yaml-ls"],
+      "enabledServers": ["bash"],
       "ignoredExtensions": [".go", ".rs"]
     }
   }
 }
 ```
 
-A harness with no section, or no `LSP_TOOLS_MCP_AGENT` set, sees every server as before. Disabled servers are hidden from `status` and never started, so the harness is not offered a second, less integrated path to a language it already covers.
+`enabledServers` is an allowlist: only those servers resolve for that harness, builtin or declared. Prefer it. `disabledServers` is also accepted and names servers to remove, but it cannot name a server that does not exist yet, so a config written today silently admits every builtin added later. An allowlist states the intent once and stays correct across upstream additions. When both appear, `enabledServers` wins.
+
+A harness with no section, or no `LSP_TOOLS_MCP_AGENT` set, sees every server as before. Excluded servers are hidden from `status` and never started, so the harness is not offered a second, less integrated path to a language it already covers.
 
 ### Workspace roots
 

@@ -9,7 +9,7 @@ All notable changes to this project are documented in this file.
 - Top-level `ignoredExtensions` configuration that short-circuits server command lookup.
 - Extensionless `bash` and `sh` shebang routing through the `.sh` language server.
 - `.lsp-root` as an explicit workspace boundary for source trees without a suitable project marker.
-- Per-agent server scoping: name the calling harness in `LSP_TOOLS_MCP_AGENT` and give it an `agents` section contributing `disabledServers` and `ignoredExtensions`, so one shared config can express a different scope per harness.
+- Per-agent server scoping: name the calling harness in `LSP_TOOLS_MCP_AGENT` and give it an `agents` section contributing `enabledServers`, `disabledServers`, and `ignoredExtensions`, so one shared config can express a different scope per harness. `enabledServers` is an allowlist and takes precedence, so a scoped harness does not silently acquire builtin servers added in later releases.
 
 ### Changed
 
