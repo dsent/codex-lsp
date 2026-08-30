@@ -75,8 +75,10 @@ export class LspDiagnosticsUnavailableError extends Error {
 		readonly timeoutMs: number,
 	) {
 		super(
-			`No diagnostics answer for ${filePath}: the language server published nothing within ${timeoutMs} ms. ` +
-				"This is not a clean result — the file was not analysed in time.",
+			`Diagnostics for ${filePath} are not ready: the language server reported nothing within ${timeoutMs} ms. ` +
+				"This is not a clean result and does not mean the file has no findings — the outcome is unknown. " +
+				"The server is still analysing in the background, and the work is not wasted: " +
+				"request diagnostics for this file again in about 10 seconds and it will normally answer from cache.",
 		);
 	}
 }
