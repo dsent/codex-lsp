@@ -135,13 +135,19 @@ describe("spawnProcess", () => {
 
 				// then
 				expect(Number.isInteger(childPid)).toBe(true);
-				await expect.poll(() => proc.exitCode, { timeout: 2_000, interval: 25 }).not.toBeNull();
-				await expect.poll(() => isPidAlive(childPid), { timeout: 2_000, interval: 25 }).toBe(false);
+				// Await the process's own exit signal rather than polling exitCode: the
+				// poll deadline is wall-clock, so a loaded event loop made a correct
+				// teardown look like a timeout when the whole suite ran in parallel.
+				await proc.exited;
+				expect(proc.exitCode).not.toBeNull();
+				// No event exists for a grandchild dying, so this one still polls.
+				await expect.poll(() => isPidAlive(childPid), { timeout: 10_000, interval: 25 }).toBe(false);
 			} finally {
 				killPidBestEffort(childPid);
 				proc.kill("SIGKILL");
 			}
 		},
+		20_000,
 	);
 });
 
