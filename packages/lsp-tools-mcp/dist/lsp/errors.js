@@ -62,9 +62,7 @@ export function isLspDeadConnectionError(err) {
 export class LspDiagnosticsUnavailableError extends Error {
     constructor(filePath, timeoutMs) {
         super(`Diagnostics for ${filePath} are not ready: the language server reported nothing within ${timeoutMs} ms. ` +
-            "This is not a clean result and does not mean the file has no findings — the outcome is unknown. " +
-            "The server is still analysing in the background, and the work is not wasted: " +
-            "request diagnostics for this file again in about 10 seconds and it will normally answer from cache.");
+            "Request diagnostics for this file again in about 10 seconds and it should answer from cache.");
         this.filePath = filePath;
         this.timeoutMs = timeoutMs;
         this.name = "LspDiagnosticsUnavailableError";
