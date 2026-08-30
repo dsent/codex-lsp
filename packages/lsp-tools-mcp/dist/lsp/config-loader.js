@@ -30,6 +30,35 @@ function loadJsonFile(path) {
         return null;
     }
 }
+/**
+ * The harness this server is answering, from LSP_TOOLS_MCP_AGENT.
+ *
+ * `ignoredExtensions` and `disabled` are unioned across every loaded config, so
+ * one shared config cannot express two scopes: narrowing it for a harness with
+ * its own native integration narrows it for every other harness too. Naming the
+ * caller lets a single config carry a section per harness.
+ */
+export function getActiveAgent() {
+    const name = process.env["LSP_TOOLS_MCP_AGENT"]?.trim();
+    return name ? name : null;
+}
+function agentScoping(configs) {
+    const disabledServers = new Set();
+    const ignoredExtensions = new Set();
+    const agent = getActiveAgent();
+    if (!agent)
+        return { disabledServers, ignoredExtensions };
+    for (const config of configs.values()) {
+        const entry = parseAgentConfig(config.agents?.[agent]);
+        if (!entry)
+            continue;
+        for (const id of entry.disabledServers ?? [])
+            disabledServers.add(id);
+        for (const extension of entry.ignoredExtensions ?? [])
+            ignoredExtensions.add(extension.toLowerCase());
+    }
+    return { disabledServers, ignoredExtensions };
+}
 export function loadAllConfigs() {
     const paths = getConfigPaths();
     const configs = new Map();
@@ -44,7 +73,7 @@ export function loadAllConfigs() {
 export function getMergedServers() {
     const configs = loadAllConfigs();
     const servers = [];
-    const disabled = new Set();
+    const disabled = new Set(agentScoping(configs).disabledServers);
     const seen = new Set();
     const sources = ["project", "user"];
     for (const source of sources) {
@@ -60,6 +89,8 @@ export function getMergedServers() {
                 continue;
             }
             if (seen.has(id))
+                continue;
+            if (disabled.has(id))
                 continue;
             if (!entry.command || !entry.extensions)
                 continue;
@@ -104,11 +135,15 @@ export function getMergedServers() {
     });
 }
 export function getIgnoredExtensions() {
+    const configs = loadAllConfigs();
     const ignored = new Set();
-    for (const config of loadAllConfigs().values()) {
+    for (const config of configs.values()) {
         for (const extension of config.ignoredExtensions ?? []) {
             ignored.add(extension);
         }
+    }
+    for (const extension of agentScoping(configs).ignoredExtensions) {
+        ignored.add(extension);
     }
     return ignored;
 }
@@ -117,7 +152,21 @@ function isConfigJson(value) {
         return false;
     const lsp = value["lsp"];
     const ignoredExtensions = value["ignoredExtensions"];
-    return ((lsp === undefined || isRecord(lsp)) && (ignoredExtensions === undefined || isExtensionArray(ignoredExtensions)));
+    const agents = value["agents"];
+    return ((lsp === undefined || isRecord(lsp)) &&
+        (ignoredExtensions === undefined || isExtensionArray(ignoredExtensions)) &&
+        (agents === undefined || isRecord(agents)));
+}
+function parseAgentConfig(value) {
+    if (!isRecord(value))
+        return null;
+    const disabledServers = value["disabledServers"];
+    const ignoredExtensions = value["ignoredExtensions"];
+    if (disabledServers !== undefined && !isStringArray(disabledServers))
+        return null;
+    if (ignoredExtensions !== undefined && !isExtensionArray(ignoredExtensions))
+        return null;
+    return value;
 }
 function parseLspEntry(value) {
     return isLspEntry(value) ? value : null;

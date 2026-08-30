@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import { isDirectoryPath, withLspClient } from "./lsp/client-wrapper.js";
 import { DEFAULT_MAX_DIAGNOSTICS, DEFAULT_MAX_REFERENCES, DEFAULT_MAX_SYMBOLS } from "./lsp/constants.js";
 import { aggregateDiagnosticsForDirectory } from "./lsp/directory-diagnostics.js";
+import { LspDiagnosticsUnavailableError } from "./lsp/errors.js";
 import { filterDiagnosticsBySeverity, formatApplyResult, formatDiagnostic, formatDocumentSymbol, formatLocation, formatPrepareRenameResult, formatSymbolInfo, } from "./lsp/formatters.js";
 import { inferExtensionFromDirectory } from "./lsp/infer-extension.js";
 import { getLspManager } from "./lsp/manager.js";
@@ -151,6 +152,19 @@ export async function executeLspDiagnostics(params, signal) {
         return text(output, details);
     }
     catch (error) {
+        if (error instanceof LspDiagnosticsUnavailableError) {
+            const details = {
+                filePath,
+                severity,
+                mode: "file",
+                diagnostics: [],
+                totalDiagnostics: 0,
+                truncated: false,
+                error: error.message,
+                errorKind: "diagnostics_unavailable",
+            };
+            return text(error.message, details);
+        }
         const message = handleMissingDependencyError(error);
         if (message) {
             const details = {

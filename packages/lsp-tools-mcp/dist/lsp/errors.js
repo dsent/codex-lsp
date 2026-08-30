@@ -54,3 +54,17 @@ export class LspProcessSpawnError extends Error {
 export function isLspDeadConnectionError(err) {
     return err instanceof LspConnectionClosedError || err instanceof LspProcessExitedError;
 }
+/**
+ * The server never reported for a document. Distinct from an empty result on
+ * purpose: a caller must be able to tell "no findings" from "no answer", and a
+ * single empty array cannot say both.
+ */
+export class LspDiagnosticsUnavailableError extends Error {
+    constructor(filePath, timeoutMs) {
+        super(`No diagnostics answer for ${filePath}: the language server published nothing within ${timeoutMs} ms. ` +
+            "This is not a clean result — the file was not analysed in time.");
+        this.filePath = filePath;
+        this.timeoutMs = timeoutMs;
+        this.name = "LspDiagnosticsUnavailableError";
+    }
+}

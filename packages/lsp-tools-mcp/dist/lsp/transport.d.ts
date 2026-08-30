@@ -9,6 +9,8 @@ export declare class LspClientTransport {
     protected readonly stderrBuffer: string[];
     protected processExited: boolean;
     protected readonly diagnosticsStore: Map<string, Diagnostic[]>;
+    protected readonly diagnosticsPublished: Set<string>;
+    private readonly diagnosticsWaiters;
     constructor(root: string, server: ResolvedServer);
     pid(): number | undefined;
     command(): string[];
@@ -22,4 +24,9 @@ export declare class LspClientTransport {
     isAlive(): boolean;
     stop(): Promise<void>;
     getStoredDiagnostics(uri: string): Diagnostic[];
+    hasStoredDiagnostics(uri: string): boolean;
+    /** Forget that the server has answered for this URI, before its content changes. */
+    markDiagnosticsStale(uri: string): void;
+    /** Resolves true once the server publishes for this URI, false if the deadline passes first. */
+    waitForDiagnostics(uri: string, timeoutMs: number): Promise<boolean>;
 }

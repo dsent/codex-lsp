@@ -36,7 +36,7 @@ export interface LspDiagnosticsDetails {
     totalDiagnostics: number;
     truncated: boolean;
     error?: string;
-    errorKind?: "missing_dependency" | "no_files" | "invalid_path";
+    errorKind?: "missing_dependency" | "no_files" | "invalid_path" | "diagnostics_unavailable";
 }
 export interface LspGotoDefinitionDetails {
     filePath: string;

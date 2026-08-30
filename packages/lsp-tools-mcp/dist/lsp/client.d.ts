@@ -1,6 +1,8 @@
 import { LspClientConnection } from "./connection.js";
 import type { Diagnostic, DocumentSymbol, Location, LocationLink, PrepareRenameDefaultBehavior, PrepareRenameResult, Range, SymbolInfo, WorkspaceEdit } from "./types.js";
 export declare class LspClient extends LspClientConnection {
+    /** Overridable so tests need not wait the production deadline. */
+    protected diagnosticsPublishTimeoutMs: number;
     private readonly openedFiles;
     private readonly documentVersions;
     private readonly lastSyncedText;

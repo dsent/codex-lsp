@@ -33,3 +33,14 @@ export declare class LspProcessSpawnError extends Error {
     readonly name = "LspProcessSpawnError";
 }
 export declare function isLspDeadConnectionError(err: unknown): err is LspConnectionClosedError | LspProcessExitedError;
+/**
+ * The server never reported for a document. Distinct from an empty result on
+ * purpose: a caller must be able to tell "no findings" from "no answer", and a
+ * single empty array cannot say both.
+ */
+export declare class LspDiagnosticsUnavailableError extends Error {
+    readonly filePath: string;
+    readonly timeoutMs: number;
+    readonly name = "LspDiagnosticsUnavailableError";
+    constructor(filePath: string, timeoutMs: number);
+}

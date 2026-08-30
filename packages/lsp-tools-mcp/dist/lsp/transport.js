@@ -35,6 +35,11 @@ export class LspClientTransport {
         this.stderrBuffer = [];
         this.processExited = false;
         this.diagnosticsStore = new Map();
+        // A server that pushes diagnostics answers whenever it is ready, so "the store
+        // is empty" and "the server has not answered yet" are the same observation
+        // unless the arrival is recorded separately.
+        this.diagnosticsPublished = new Set();
+        this.diagnosticsWaiters = new Map();
     }
     pid() {
         return this.proc?.pid;
@@ -68,6 +73,13 @@ export class LspClientTransport {
             const diagnosticsParams = parseDiagnosticsParams(params);
             if (diagnosticsParams?.uri) {
                 this.diagnosticsStore.set(diagnosticsParams.uri, diagnosticsParams.diagnostics);
+                this.diagnosticsPublished.add(diagnosticsParams.uri);
+                const waiters = this.diagnosticsWaiters.get(diagnosticsParams.uri);
+                if (waiters) {
+                    this.diagnosticsWaiters.delete(diagnosticsParams.uri);
+                    for (const waiter of waiters)
+                        waiter(true);
+                }
             }
         });
         this.connection.onRequest("workspace/configuration", (params) => {
@@ -227,9 +239,47 @@ export class LspClientTransport {
         }
         this.processExited = true;
         this.diagnosticsStore.clear();
+        this.diagnosticsPublished.clear();
+        for (const waiters of this.diagnosticsWaiters.values()) {
+            for (const waiter of waiters)
+                waiter(false);
+        }
+        this.diagnosticsWaiters.clear();
     }
     getStoredDiagnostics(uri) {
         return this.diagnosticsStore.get(uri) ?? [];
+    }
+    hasStoredDiagnostics(uri) {
+        return this.diagnosticsStore.has(uri);
+    }
+    /** Forget that the server has answered for this URI, before its content changes. */
+    markDiagnosticsStale(uri) {
+        this.diagnosticsPublished.delete(uri);
+    }
+    /** Resolves true once the server publishes for this URI, false if the deadline passes first. */
+    waitForDiagnostics(uri, timeoutMs) {
+        if (this.diagnosticsPublished.has(uri))
+            return Promise.resolve(true);
+        if (this.processExited)
+            return Promise.resolve(false);
+        return new Promise((resolvePromise) => {
+            const waiters = this.diagnosticsWaiters.get(uri) ?? new Set();
+            this.diagnosticsWaiters.set(uri, waiters);
+            let settled = false;
+            const settle = (published) => {
+                if (settled)
+                    return;
+                settled = true;
+                clearTimeout(timer);
+                waiters.delete(settle);
+                if (waiters.size === 0)
+                    this.diagnosticsWaiters.delete(uri);
+                resolvePromise(published);
+            };
+            const timer = setTimeout(() => settle(false), timeoutMs);
+            timer.unref?.();
+            waiters.add(settle);
+        });
     }
 }
 function isDiagnostic(value) {
