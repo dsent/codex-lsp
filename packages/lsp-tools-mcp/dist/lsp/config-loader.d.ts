@@ -2,7 +2,6 @@ import type { ResolvedServer } from "./types.js";
 interface ConfigJson {
     ignoredExtensions?: string[];
     lsp?: Record<string, unknown>;
-    agents?: Record<string, unknown>;
 }
 type ConfigSource = "project" | "user";
 export interface ServerWithSource extends ResolvedServer {
@@ -13,16 +12,29 @@ export declare function getConfigPaths(): {
     user: string;
 };
 /**
- * The harness this server is answering, from LSP_TOOLS_MCP_AGENT.
+ * Server scoping for this process, declared by whoever registered it.
  *
- * `ignoredExtensions` and `disabled` are unioned across every loaded config, so
- * one shared config cannot express two scopes: narrowing it for a harness with
- * its own native integration narrows it for every other harness too. Naming the
- * caller lets a single config carry a section per harness.
+ * A harness that already integrates a language natively should not be offered a
+ * second, less integrated path to it. The registration that starts this server
+ * is harness-specific by construction, so it is where the scope belongs.
+ * `LSP_TOOLS_MCP_ENABLED_SERVERS` is an allowlist and the durable form: a
+ * denylist cannot name a server that does not exist yet, so it silently admits
+ * every builtin added later.
  */
-export declare function getActiveAgent(): string | null;
+export declare function serverScoping(): {
+    enabledServers: Set<string> | null;
+    disabledServers: Set<string>;
+};
 export declare function loadAllConfigs(): Map<ConfigSource, ConfigJson>;
 export declare function getMergedServers(): ServerWithSource[];
+/**
+ * Scoping entries that name no server this build knows about.
+ *
+ * A misspelled id silently resolves nothing, which looks exactly like a
+ * language with no findings, so `status` reports these rather than leaving the
+ * caller to infer it from an empty list.
+ */
+export declare function getScopingProblems(): string[];
 export declare function getIgnoredExtensions(): Set<string>;
 export declare function getDisabledServerIds(): Set<string>;
 export {};

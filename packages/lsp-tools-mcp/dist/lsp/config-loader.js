@@ -30,40 +30,31 @@ function loadJsonFile(path) {
         return null;
     }
 }
-/**
- * The harness this server is answering, from LSP_TOOLS_MCP_AGENT.
- *
- * `ignoredExtensions` and `disabled` are unioned across every loaded config, so
- * one shared config cannot express two scopes: narrowing it for a harness with
- * its own native integration narrows it for every other harness too. Naming the
- * caller lets a single config carry a section per harness.
- */
-export function getActiveAgent() {
-    const name = process.env["LSP_TOOLS_MCP_AGENT"]?.trim();
-    return name ? name : null;
+function envServerList(name) {
+    const raw = process.env[name];
+    if (raw === undefined)
+        return null;
+    const ids = raw
+        .split(",")
+        .map((id) => id.trim())
+        .filter((id) => id.length > 0);
+    return new Set(ids);
 }
-function agentScoping(configs) {
-    let enabledServers = null;
-    const disabledServers = new Set();
-    const ignoredExtensions = new Set();
-    const agent = getActiveAgent();
-    if (!agent)
-        return { enabledServers, disabledServers, ignoredExtensions };
-    for (const config of configs.values()) {
-        const entry = parseAgentConfig(config.agents?.[agent]);
-        if (!entry)
-            continue;
-        if (entry.enabledServers) {
-            enabledServers ??= new Set();
-            for (const id of entry.enabledServers)
-                enabledServers.add(id);
-        }
-        for (const id of entry.disabledServers ?? [])
-            disabledServers.add(id);
-        for (const extension of entry.ignoredExtensions ?? [])
-            ignoredExtensions.add(extension.toLowerCase());
-    }
-    return { enabledServers, disabledServers, ignoredExtensions };
+/**
+ * Server scoping for this process, declared by whoever registered it.
+ *
+ * A harness that already integrates a language natively should not be offered a
+ * second, less integrated path to it. The registration that starts this server
+ * is harness-specific by construction, so it is where the scope belongs.
+ * `LSP_TOOLS_MCP_ENABLED_SERVERS` is an allowlist and the durable form: a
+ * denylist cannot name a server that does not exist yet, so it silently admits
+ * every builtin added later.
+ */
+export function serverScoping() {
+    return {
+        enabledServers: envServerList("LSP_TOOLS_MCP_ENABLED_SERVERS"),
+        disabledServers: new Set(envServerList("LSP_TOOLS_MCP_DISABLED_SERVERS") ?? []),
+    };
 }
 export function loadAllConfigs() {
     const paths = getConfigPaths();
@@ -79,9 +70,7 @@ export function loadAllConfigs() {
 export function getMergedServers() {
     const configs = loadAllConfigs();
     const servers = [];
-    const scoping = agentScoping(configs);
-    // An allowlist states what the agent wants and stays correct when new builtin
-    // servers are added upstream; a denylist silently admits every future one.
+    const scoping = serverScoping();
     const allowed = scoping.enabledServers;
     const isAllowed = (id) => (allowed ? allowed.has(id) : !scoping.disabledServers.has(id));
     const disabled = new Set();
@@ -145,6 +134,32 @@ export function getMergedServers() {
         return b.priority - a.priority;
     });
 }
+/**
+ * Scoping entries that name no server this build knows about.
+ *
+ * A misspelled id silently resolves nothing, which looks exactly like a
+ * language with no findings, so `status` reports these rather than leaving the
+ * caller to infer it from an empty list.
+ */
+export function getScopingProblems() {
+    const known = new Set(Object.keys(BUILTIN_SERVERS));
+    for (const config of loadAllConfigs().values()) {
+        for (const id of Object.keys(config.lsp ?? {}))
+            known.add(id);
+    }
+    const scoping = serverScoping();
+    const problems = [];
+    for (const [source, ids] of [
+        ["LSP_TOOLS_MCP_ENABLED_SERVERS", scoping.enabledServers ?? new Set()],
+        ["LSP_TOOLS_MCP_DISABLED_SERVERS", scoping.disabledServers],
+    ]) {
+        for (const id of ids) {
+            if (!known.has(id))
+                problems.push(`${source} names an unknown server: "${id}"`);
+        }
+    }
+    return problems;
+}
 export function getIgnoredExtensions() {
     const configs = loadAllConfigs();
     const ignored = new Set();
@@ -153,9 +168,6 @@ export function getIgnoredExtensions() {
             ignored.add(extension);
         }
     }
-    for (const extension of agentScoping(configs).ignoredExtensions) {
-        ignored.add(extension);
-    }
     return ignored;
 }
 function isConfigJson(value) {
@@ -163,24 +175,7 @@ function isConfigJson(value) {
         return false;
     const lsp = value["lsp"];
     const ignoredExtensions = value["ignoredExtensions"];
-    const agents = value["agents"];
-    return ((lsp === undefined || isRecord(lsp)) &&
-        (ignoredExtensions === undefined || isExtensionArray(ignoredExtensions)) &&
-        (agents === undefined || isRecord(agents)));
-}
-function parseAgentConfig(value) {
-    if (!isRecord(value))
-        return null;
-    const enabledServers = value["enabledServers"];
-    const disabledServers = value["disabledServers"];
-    const ignoredExtensions = value["ignoredExtensions"];
-    if (enabledServers !== undefined && !isStringArray(enabledServers))
-        return null;
-    if (disabledServers !== undefined && !isStringArray(disabledServers))
-        return null;
-    if (ignoredExtensions !== undefined && !isExtensionArray(ignoredExtensions))
-        return null;
-    return value;
+    return ((lsp === undefined || isRecord(lsp)) && (ignoredExtensions === undefined || isExtensionArray(ignoredExtensions)));
 }
 function parseLspEntry(value) {
     return isLspEntry(value) ? value : null;
