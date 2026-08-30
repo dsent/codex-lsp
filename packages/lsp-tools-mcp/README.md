@@ -27,6 +27,9 @@ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | node dist/cli.j
 
 ## MCP Tools
 
+`diagnostics` distinguishes "no findings" from "no answer". A server that pushes diagnostics answers when it is ready, so the tool waits for it to report on the document rather than sleeping a fixed interval — ShellCheck on a large script does not finish within a second, and an empty result would otherwise read as a clean file. If the server has said nothing at all about the document by the deadline, the call fails with `diagnostics_unavailable` instead of returning an empty list.
+
+
 This server exposes the following tools:
 
 - `lsp.status`
@@ -66,6 +69,23 @@ Project and user configuration can suppress automatic lookup for selected extens
 
 Extensionless files with `bash` or `sh` shebangs are routed as `.sh` with the `shellscript` language ID. Direct interpreter paths, `env`, and `env -S` shebangs are supported.
 
+### Per-agent scoping
+
+`ignoredExtensions` and per-server `disabled` are unioned across every loaded config, so one shared config cannot express two scopes: narrowing it for a harness that already has native language support narrows it for every other harness too. Name the calling harness in `LSP_TOOLS_MCP_AGENT` and give it a section:
+
+```json
+{
+  "agents": {
+    "claude": {
+      "disabledServers": ["gopls", "rust", "typescript", "biome", "yaml-ls"],
+      "ignoredExtensions": [".go", ".rs"]
+    }
+  }
+}
+```
+
+A harness with no section, or no `LSP_TOOLS_MCP_AGENT` set, sees every server as before. Disabled servers are hidden from `status` and never started, so the harness is not offered a second, less integrated path to a language it already covers.
+
 ### Workspace roots
 
 Rust files first resolve their Cargo workspace through `cargo metadata`. Other files, and Rust files when Cargo resolution is unavailable, walk upward from the source file and select the nearest directory containing `.lsp-root`, `.git`, `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `pom.xml`, or `build.gradle`. When no marker exists, discovery uses the source file's directory.
@@ -76,6 +96,7 @@ Path overrides via environment variables:
 
 - `LSP_TOOLS_MCP_PROJECT_CONFIG`
 - `LSP_TOOLS_MCP_USER_CONFIG`
+- `LSP_TOOLS_MCP_AGENT` — names the calling harness, selecting its section under `agents`
 
 The MCP process remains active until its host closes the stdio connection. Idle language-server child processes are cleaned up independently.
 

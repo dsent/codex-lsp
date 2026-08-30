@@ -9,6 +9,7 @@ All notable changes to this project are documented in this file.
 - Top-level `ignoredExtensions` configuration that short-circuits server command lookup.
 - Extensionless `bash` and `sh` shebang routing through the `.sh` language server.
 - `.lsp-root` as an explicit workspace boundary for source trees without a suitable project marker.
+- Per-agent server scoping: name the calling harness in `LSP_TOOLS_MCP_AGENT` and give it an `agents` section contributing `disabledServers` and `ignoredExtensions`, so one shared config can express a different scope per harness.
 
 ### Changed
 
@@ -17,6 +18,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Wait for a push-only server to report on a document instead of sleeping a fixed interval, and fail with `diagnostics_unavailable` when it never answers. Previously a large file returned an empty list on first request, which is indistinguishable from a file with no findings.
 - Prefer source extensions with available configured servers when inferring the language for directory diagnostics.
 - Preserve non-file definition URIs such as Kotlin and Java archive locations.
 - Launch JetBrains Kotlin LSP with its mandatory `--stdio` transport flag.

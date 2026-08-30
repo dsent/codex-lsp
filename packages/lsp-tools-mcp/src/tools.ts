@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { isDirectoryPath, type WithLspClientOptions, withLspClient } from "./lsp/client-wrapper.js";
 import { DEFAULT_MAX_DIAGNOSTICS, DEFAULT_MAX_REFERENCES, DEFAULT_MAX_SYMBOLS } from "./lsp/constants.js";
 import { aggregateDiagnosticsForDirectory } from "./lsp/directory-diagnostics.js";
+import { LspDiagnosticsUnavailableError } from "./lsp/errors.js";
 import {
 	filterDiagnosticsBySeverity,
 	formatApplyResult,
@@ -67,7 +68,7 @@ export interface LspDiagnosticsDetails {
 	totalDiagnostics: number;
 	truncated: boolean;
 	error?: string;
-	errorKind?: "missing_dependency" | "no_files" | "invalid_path";
+	errorKind?: "missing_dependency" | "no_files" | "invalid_path" | "diagnostics_unavailable";
 }
 
 export interface LspGotoDefinitionDetails {
@@ -290,6 +291,20 @@ export async function executeLspDiagnostics(
 		};
 		return text(output, details);
 	} catch (error) {
+		if (error instanceof LspDiagnosticsUnavailableError) {
+			const details: LspDiagnosticsDetails = {
+				filePath,
+				severity,
+				mode: "file",
+				diagnostics: [],
+				totalDiagnostics: 0,
+				truncated: false,
+				error: error.message,
+				errorKind: "diagnostics_unavailable",
+			};
+			return text(error.message, details);
+		}
+
 		const message = handleMissingDependencyError(error);
 		if (message) {
 			const details: LspDiagnosticsDetails = {
