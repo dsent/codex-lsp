@@ -1,17 +1,17 @@
 {
-  "name": "@code-yeongyu/lsp-tools-mcp",
+  "name": "@dsent/lsp-tools-mcp",
   "version": "0.1.0",
   "description": "Standalone Language Server Protocol tools exposed as a stdio MCP server.",
   "type": "module",
   "packageManager": "npm@11.12.1",
   "license": "MIT",
-  "homepage": "https://github.com/code-yeongyu/lsp-tools-mcp",
+  "homepage": "https://github.com/dsent/lsp-tools-mcp",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/code-yeongyu/lsp-tools-mcp.git"
+    "url": "git+https://github.com/dsent/lsp-tools-mcp.git"
   },
   "bugs": {
-    "url": "https://github.com/code-yeongyu/lsp-tools-mcp/issues"
+    "url": "https://github.com/dsent/lsp-tools-mcp/issues"
   },
   "keywords": [
     "mcp",
