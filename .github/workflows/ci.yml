@@ -22,11 +22,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The declared engines floor and the version this actually runs on.
+        # Supported majors only: 22 is the oldest still supported, 24 is what
+        # this runs on today, 26 is where it is going. 20 is end-of-life.
         # Platform-specific command building takes the platform as a parameter,
         # so the win32 branch is covered without a Windows runner.
         os: [ubuntu-latest]
-        node: ["20", "24"]
+        node: ["22", "24", "26"]
     steps:
       - name: Checkout
         uses: actions/checkout@v6
