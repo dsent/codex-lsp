@@ -47,7 +47,8 @@
 		"lint": "biome check src test",
 		"lint:fix": "biome check --write src test",
 		"precheck": "node scripts/bootstrap-submodule.mjs",
-		"check": "tsc --noEmit && biome check src test && tsc -p tsconfig.build.json"
+		"check:dist": "npm run build && git diff --exit-code -- dist packages/lsp-tools-mcp/dist",
+		"check": "tsc --noEmit && biome check src test && npm run check:dist"
 	},
 	"dependencies": {
 		"@dsent/lsp-tools-mcp": "file:./packages/lsp-tools-mcp",

@@ -111,14 +111,3 @@ jobs:
 
       - name: Unit tests
         run: npm test
-
-      - name: Committed dist matches a fresh build
-        run: |
-          if ! git diff --quiet -- dist packages/lsp-tools-mcp/dist; then
-            echo "::error::Committed build output is stale. Rebuild and commit:"
-            echo "  (cd packages/lsp-tools-mcp && npm ci && npm run build)"
-            echo "  npm install && npm run build"
-            echo "  git add -f dist packages/lsp-tools-mcp/dist"
-            git --no-pager diff --stat -- dist packages/lsp-tools-mcp/dist
-            exit 1
-          fi
