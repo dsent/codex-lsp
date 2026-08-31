@@ -1,19 +1,20 @@
 # lsp-tools-mcp
 
-[![ci](https://github.com/code-yeongyu/lsp-tools-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/code-yeongyu/lsp-tools-mcp/actions/workflows/ci.yml) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![ci](https://github.com/dsent/lsp-tools-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/dsent/lsp-tools-mcp/actions/workflows/ci.yml) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Standalone Language Server Protocol tools exposed as a stdio MCP server.
 
+A fork of [code-yeongyu/lsp-tools-mcp](https://github.com/code-yeongyu/lsp-tools-mcp). It diverges deliberately: `dist/` is committed so a consumer pinning a revision runs without an install or build step, and config discovery is harness-neutral rather than defaulting to one harness's directory.
+
 ## Used By
 
-This package is the upstream source of truth for two downstream plugins. Codex consumes the repository-level package directly; OpenCode consumes the same runtime as a built-in MCP package.
+This fork is the source of truth for the downstream plugin below, which vendors it as a git subtree.
 
 | Project | Path | Role |
 |---------|------|------|
-| **[codex-lsp](https://github.com/code-yeongyu/codex-lsp)** | `packages/lsp-tools-mcp/` | Codex plugin that reuses these LSP MCP tools plus a Codex-specific PostToolUse diagnostics hook. |
-| **[oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent)** (a.k.a. `oh-my-opencode`) | `vendor/lsp-tools-mcp/` | OpenCode plugin that registers this server as a built-in Tier-1 stdio MCP. Exposes `lsp_diagnostics`, `lsp_goto_definition`, `lsp_find_references`, `lsp_symbols`, `lsp_prepare_rename`, `lsp_rename`, and `lsp_status` to all agents. |
+| **[codex-lsp](https://github.com/dsent/codex-lsp)** | `packages/lsp-tools-mcp/` | Codex plugin that reuses these LSP MCP tools plus a Codex-specific PostToolUse diagnostics hook. |
 
-If you fix or extend the LSP runtime here, downstream adapters should reuse this package. Do not fork the runtime into a downstream; land changes here instead.
+If you fix or extend the LSP runtime, land it here and let the downstream pull it; do not edit the vendored copy in a downstream.
 
 ## Quick Start
 

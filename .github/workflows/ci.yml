@@ -22,8 +22,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        node: ["20", "22"]
+        # The declared engines floor and the version this actually runs on.
+        # Platform-specific command building takes the platform as a parameter,
+        # so the win32 branch is covered without a Windows runner.
+        os: [ubuntu-latest]
+        node: ["20", "24"]
     steps:
       - name: Checkout
         uses: actions/checkout@v6

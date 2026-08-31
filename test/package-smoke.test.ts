@@ -26,7 +26,7 @@ describe("package metadata", () => {
 		// then
 		expect(packageJson.type).toBe("module");
 		expect(packageJson.packageManager).toBe("npm@11.12.1");
-		expect(packageJson.name).toBe("@code-yeongyu/lsp-tools-mcp");
+		expect(packageJson.name).toBe("@dsent/lsp-tools-mcp");
 		expect(packageJson.license).toBe("MIT");
 		expect(packageJson.dependencies ?? {}).toEqual({});
 		expect(packageJson.bin["lsp-tools-mcp"]).toBe("./dist/cli.js");
@@ -42,7 +42,7 @@ function isPackageJson(value: unknown): value is PackageJson {
 		isRecord(value) &&
 		value["type"] === "module" &&
 		value["packageManager"] === "npm@11.12.1" &&
-		value["name"] === "@code-yeongyu/lsp-tools-mcp" &&
+		value["name"] === "@dsent/lsp-tools-mcp" &&
 		value["license"] === "MIT" &&
 		isStringRecord(value["bin"]) &&
 		isStringArray(value["files"]) &&
