@@ -39,7 +39,7 @@ jobs:
         run: |
           test -f dist/cli.js
           test -f packages/lsp-tools-mcp/dist/cli.js
-          test -L node_modules/@code-yeongyu/lsp-tools-mcp
+          test -L node_modules/@dsent/lsp-tools-mcp
           test -f node_modules/smol-toml/package.json
 
       - name: MCP server advertises its tools, with no install and no build

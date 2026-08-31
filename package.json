@@ -50,7 +50,7 @@
 		"check": "tsc --noEmit && biome check src test && tsc -p tsconfig.build.json"
 	},
 	"dependencies": {
-		"@code-yeongyu/lsp-tools-mcp": "file:./packages/lsp-tools-mcp",
+		"@dsent/lsp-tools-mcp": "file:./packages/lsp-tools-mcp",
 		"smol-toml": "^1.8.0"
 	},
 	"devDependencies": {

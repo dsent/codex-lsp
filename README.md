@@ -12,7 +12,7 @@ Codex plugin that ports the standalone LSP runtime from [`pi-lsp-client`](https:
 
 ## Architecture
 
-The LSP runtime lives in [`lsp-tools-mcp`](https://github.com/code-yeongyu/lsp-tools-mcp). Upstream consumes it as a git submodule at `packages/lsp-tools-mcp/`; this fork carries it as a squashed subtree at the same path.
+The LSP runtime lives in [`lsp-tools-mcp`](https://github.com/dsent/lsp-tools-mcp). Upstream consumes it as a git submodule at `packages/lsp-tools-mcp/`; this fork carries it as a squashed subtree at the same path.
 
 - `codex-lsp` keeps Codex-specific integration (`hook post-tool-use`, plugin metadata, package wiring).
 - `lsp-tools-mcp` owns MCP runtime, LSP manager, and tool implementations.
@@ -142,7 +142,7 @@ startup_timeout_sec = 30
   server is configured; piping an `initialize` plus `tools/list` into
   `packages/lsp-tools-mcp/dist/cli.js mcp` proves it actually runs. CI does
   exactly this on every push.
-- **POSIX only.** `node_modules/@code-yeongyu/lsp-tools-mcp` is a committed
+- **POSIX only.** `node_modules/@dsent/lsp-tools-mcp` is a committed
   symlink, so Windows checkouts need symlink support enabled. Not tested.
 
 ## Codex Plugin
@@ -154,7 +154,7 @@ The plugin ships:
 - `hooks/hooks.json` for the `PostToolUse` diagnostics hook.
 - `skills/lsp/SKILL.md` with MCP usage guidance.
 
-The runtime depends on `@code-yeongyu/lsp-tools-mcp` via `file:./packages/lsp-tools-mcp`, so packaging must include those contents. In this fork they are subtree files already present in the checkout, and the `node_modules` link that resolves the package name is committed alongside them.
+The runtime depends on `@dsent/lsp-tools-mcp` via `file:./packages/lsp-tools-mcp`, so packaging must include those contents. In this fork they are subtree files already present in the checkout, and the `node_modules` link that resolves the package name is committed alongside them.
 
 `.codex-plugin/plugin.json` is tracked here. Upstream generates it at pack time and does not commit it, which leaves its own `package-smoke` test failing on a fresh clone; committing the manifest fixes that test and lets plugin discovery work from a plain checkout.
 
@@ -189,7 +189,7 @@ after changing its sources or pulling the subtree, then commit the result
 (`git add -f packages/lsp-tools-mcp/dist`).
 
 The `bootstrap` script installs and builds the `lsp-tools-mcp` git submodule so
-`@code-yeongyu/lsp-tools-mcp/dist/*.js` is available for the codex-lsp build.
+`@dsent/lsp-tools-mcp/dist/*.js` is available for the codex-lsp build.
 
 Smoke-test the hook:
 

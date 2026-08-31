@@ -9,7 +9,7 @@
 # packages/lsp-tools-mcp/ diverges from upstream. Node resolves bare specifiers
 # by walking up, so a root-level copy serves the subtree fine.
 node_modules/*
-!node_modules/@code-yeongyu/
+!node_modules/@dsent/
 !node_modules/smol-toml/
 
 *.log

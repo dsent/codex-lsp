@@ -57,7 +57,7 @@ npm install && npm run build
 
 | Path | What | Why |
 | --- | --- | --- |
-| `node_modules/@code-yeongyu/lsp-tools-mcp` | relative symlink to `packages/lsp-tools-mcp` | `dist/cli.js` imports the runtime by package name; Node resolves bare ESM specifiers only through `node_modules`, so this link is structural |
+| `node_modules/@dsent/lsp-tools-mcp` | relative symlink to `packages/lsp-tools-mcp` | `dist/cli.js` imports the runtime by package name; Node resolves bare ESM specifiers only through `node_modules`, so this link is structural |
 | `node_modules/smol-toml` | the package, verbatim | the runtime declares it under `optionalDependencies` but imports it unguarded |
 
 Both sit at the repository root. `smol-toml` is imported from inside

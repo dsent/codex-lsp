@@ -82,7 +82,7 @@ describe("plugin package metadata", () => {
 		// committed copy as a dependency it should restore rather than an
 		// extraneous directory it should prune. See VENDORING.md.
 		expect(packageJson.dependencies).toEqual({
-			"@code-yeongyu/lsp-tools-mcp": "file:./packages/lsp-tools-mcp",
+			"@dsent/lsp-tools-mcp": "file:./packages/lsp-tools-mcp",
 			"smol-toml": "^1.8.0",
 		});
 		expect(packageJson.bin["codex-lsp"]).toBe("./dist/cli.js");

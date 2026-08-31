@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
 import { stdin as processStdin } from "node:process";
 
-import { executeLspDiagnostics } from "@code-yeongyu/lsp-tools-mcp/dist/tools.js";
+import { executeLspDiagnostics } from "@dsent/lsp-tools-mcp/dist/tools.js";
 
 export type DiagnosticsRunner = (filePath: string) => Promise<string>;
 
